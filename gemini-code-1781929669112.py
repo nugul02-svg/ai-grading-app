@@ -277,4 +277,19 @@ with tab4:
     if completed_count == 0:
         st.info("아직 제출된 세트가 없습니다. 문제 탭에서 답안을 먼저 제출해 주세요!")
     else:
-        sets = [("실전 적용 1 (
+        sets = [
+            ("실전 적용 1 (사회적 촉진과 억제)", "set1"), 
+            ("실전 적용 2 (정전기)", "set2"), 
+            ("실전 적용 3 (인공지능의 예술)", "set3")
+        ]
+        
+        for title, key in sets:
+            if st.session_state.completed[key]:
+                with st.expander(f"📌 {title} 피드백 확인하기", expanded=True):
+                    fb = st.session_state.feedback[key]
+                    st.markdown("**[문항 1]**")
+                    for msg in fb["q1"]: st.write(msg)
+                    st.markdown("<br>**[문항 2]**", unsafe_allow_html=True)
+                    for msg in fb["q2"]: st.write(msg)
+                    st.markdown("<br>**[문항 3]**", unsafe_allow_html=True)
+                    for msg in fb["q3"]: st.write(msg)
