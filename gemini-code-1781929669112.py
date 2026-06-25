@@ -161,29 +161,33 @@ with tab1:
 
     with st.form("form_set1"):
         st.markdown("[서·논술형 1] 윗글을 요약하여 표로 정리하였다. 빈칸 ㉠~㉢에 들어갈 내용을 찾아 쓰시오.")
-        st.markdown("<span style='color: gray; font-size: 14px;'>* 단답형 문항이므로 빈칸 안에 짧게 핵심만 입력하세요.</span>", unsafe_allow_html=True)
         
-        # --- 표 레이아웃 (세트 1) ---
-        h1, h2, h3 = st.columns(3)
-        h1.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>과제의 특성</div>", unsafe_allow_html=True)
-        h2.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>효율적인 환경 및 방법</div>", unsafe_allow_html=True)
-        h3.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>관련된 심리 현상</div>", unsafe_allow_html=True)
+        # --- HTML 표 ---
+        st.markdown("""
+        <table style="width:100%; text-align:center; border-collapse: collapse; margin-bottom: 20px;">
+            <tr style="background-color:#e2e8f0;">
+                <th style="padding:15px; border: 1px solid #cbd5e1;">과제의 특성</th>
+                <th style="padding:15px; border: 1px solid #cbd5e1;">효율적인 환경 및 방법</th>
+                <th style="padding:15px; border: 1px solid #cbd5e1;">관련된 심리 현상</th>
+            </tr>
+            <tr>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">㉠</td>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">커피숍, 도서관 등에서 하거나 모임을 만들어 다른 사람들과 함께 함</td>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">사회적 촉진</td>
+            </tr>
+            <tr>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">지나치게 어렵거나<br>도전이 필요한 과제</td>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">㉡</td>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">㉢</td>
+            </tr>
+        </table>
+        """, unsafe_allow_html=True)
         
-        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+        # --- 답안 작성란 ---
+        s1_a1 = st.text_input("㉠ 특성 (사회적 촉진):", placeholder="내용을 입력하세요.")
+        s1_a2 = st.text_input("㉡ 효율적인 환경 및 방법 (어려운 과제):", placeholder="내용을 입력하세요.")
+        s1_a3 = st.text_input("㉢ 관련된 심리 현상 (어려운 과제):", placeholder="내용을 입력하세요.")
         
-        r1_1, r1_2, r1_3 = st.columns(3)
-        with r1_1: s1_a1 = st.text_input("㉠", placeholder="㉠ 입력", label_visibility="collapsed", key="s1_a1")
-        r1_2.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>커피숍, 도서관 등에서 하거나 모임을 만들어 다른 사람들과 함께 함</div>", unsafe_allow_html=True)
-        r1_3.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>사회적 촉진</div>", unsafe_allow_html=True)
-        
-        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-        
-        r2_1, r2_2, r2_3 = st.columns(3)
-        r2_1.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>지나치게 어렵거나<br>도전이 필요한 과제</div>", unsafe_allow_html=True)
-        with r2_2: s1_a2 = st.text_input("㉡", placeholder="㉡ 입력", label_visibility="collapsed", key="s1_a2")
-        with r2_3: s1_a3 = st.text_input("㉢", placeholder="㉢ 입력", label_visibility="collapsed", key="s1_a3")
-        # ----------------------------
-
         st.markdown("---")
         st.markdown("[서·논술형 2] 윗글을 활용하여 '과제 난이도에 따른 효율적인 학습 전략'에 대한 설명문을 작성하려 한다. 주어진 첫 문장에 이어지는 내용을 <조건>에 맞추어 작성하시오.")
         draw_gray_box(cond_q2)
@@ -221,32 +225,36 @@ with tab2:
 
     with st.form("form_set2"):
         st.markdown("[서·논술형 1] 윗글을 요약하여 표로 정리하였다. 빈칸 ㉠~㉢에 들어갈 내용을 찾아 쓰시오.")
-        st.markdown("<span style='color: gray; font-size: 14px;'>* 단답형 문항이므로 빈칸 안에 짧게 핵심만 입력하세요.</span>", unsafe_allow_html=True)
         
-        # --- 표 레이아웃 (세트 2) ---
-        h1, h2, h3, h4 = st.columns([1.5, 2, 2, 2])
-        h1.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>대상</div>", unsafe_allow_html=True)
-        h2.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>물의 상태에 비유</div>", unsafe_allow_html=True)
-        h3.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>전하의 상태</div>", unsafe_allow_html=True)
-        h4.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>위험성</div>", unsafe_allow_html=True)
-
-        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-
-        r1_1, r1_2, r1_3, r1_4 = st.columns([1.5, 2, 2, 2])
-        r1_1.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>실생활 전기</div>", unsafe_allow_html=True)
-        r1_2.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>흐르는 물</div>", unsafe_allow_html=True)
-        r1_3.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>전하가 이동함</div>", unsafe_allow_html=True)
-        r1_4.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>감전 등의 위험이 있음</div>", unsafe_allow_html=True)
-
-        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-
-        r2_1, r2_2, r2_3, r2_4 = st.columns([1.5, 2, 2, 2])
-        r2_1.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>정전기</div>", unsafe_allow_html=True)
-        with r2_2: s2_a1 = st.text_input("㉠", placeholder="㉠ 입력", label_visibility="collapsed", key="s2_a1")
-        with r2_3: s2_a2 = st.text_input("㉡", placeholder="㉡ 입력", label_visibility="collapsed", key="s2_a2")
-        with r2_4: s2_a3 = st.text_input("㉢", placeholder="㉢ 입력", label_visibility="collapsed", key="s2_a3")
-        # ----------------------------
-
+        # --- HTML 표 ---
+        st.markdown("""
+        <table style="width:100%; text-align:center; border-collapse: collapse; margin-bottom: 20px;">
+            <tr style="background-color:#e2e8f0;">
+                <th style="padding:15px; border: 1px solid #cbd5e1; width:20%;">대상</th>
+                <th style="padding:15px; border: 1px solid #cbd5e1; width:25%;">물의 상태에 비유</th>
+                <th style="padding:15px; border: 1px solid #cbd5e1; width:25%;">전하의 상태</th>
+                <th style="padding:15px; border: 1px solid #cbd5e1; width:30%;">위험성</th>
+            </tr>
+            <tr>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">실생활 전기</td>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">흐르는 물</td>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">전하가 이동함</td>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">감전 등의 위험이 있음</td>
+            </tr>
+            <tr>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">정전기</td>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">㉠</td>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">㉡</td>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">㉢</td>
+            </tr>
+        </table>
+        """, unsafe_allow_html=True)
+        
+        # --- 답안 작성란 ---
+        s2_a1 = st.text_input("㉠ 물의 상태에 비유:", placeholder="내용을 입력하세요.")
+        s2_a2 = st.text_input("㉡ 전하의 상태:", placeholder="내용을 입력하세요.")
+        s2_a3 = st.text_input("㉢ 위험성:", placeholder="내용을 입력하세요.")
+        
         st.markdown("---")
         st.markdown("[서·논술형 2] 윗글을 활용하여 '정전기의 특징'에 대한 설명문을 작성하려 한다. 주어진 첫 문장에 이어지는 내용을 <조건>에 맞추어 작성하시오.")
         draw_gray_box(cond_q2)
@@ -283,32 +291,36 @@ with tab3:
 
     with st.form("form_set3"):
         st.markdown("[서·논술형 1] 윗글을 요약하여 표로 정리하였다. 빈칸 ㉠~㉢에 들어갈 내용을 찾아 쓰시오.")
-        st.markdown("<span style='color: gray; font-size: 14px;'>* 단답형 문항이므로 빈칸 안에 짧게 핵심만 입력하세요.</span>", unsafe_allow_html=True)
         
-        # --- 표 레이아웃 (세트 3) ---
-        h1, h2, h3, h4 = st.columns([1.2, 2, 3, 1.8])
-        h1.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>대상</div>", unsafe_allow_html=True)
-        h2.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>올림픽 경기에 비유</div>", unsafe_allow_html=True)
-        h3.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>예술로 볼 수 있는가<br>(근거 포함)</div>", unsafe_allow_html=True)
-        h4.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>예술로서의 가치</div>", unsafe_allow_html=True)
-
-        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-
-        r1_1, r1_2, r1_3, r1_4 = st.columns([1.2, 2, 3, 1.8])
-        r1_1.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>인간의 예술</div>", unsafe_allow_html=True)
-        r1_2.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>인간 선수의 노력과<br>열정이 담긴 경기</div>", unsafe_allow_html=True)
-        r1_3.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>작가의 경험, 관점, 환경이 담겨<br>있으므로 예술이다.</div>", unsafe_allow_html=True)
-        r1_4.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>감상자에게<br>남다른 감동을 줌</div>", unsafe_allow_html=True)
-
-        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-
-        r2_1, r2_2, r2_3, r2_4 = st.columns([1.2, 2, 3, 1.8])
-        r2_1.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>인공 지능의 예술</div>", unsafe_allow_html=True)
-        with r2_2: s3_a1 = st.text_input("㉠", placeholder="㉠ 입력", label_visibility="collapsed", key="s3_a1")
-        with r2_3: s3_a2 = st.text_input("㉡", placeholder="㉡ 입력", label_visibility="collapsed", key="s3_a2")
-        with r2_4: s3_a3 = st.text_input("㉢", placeholder="㉢ 입력", label_visibility="collapsed", key="s3_a3")
-        # ----------------------------
-
+        # --- HTML 표 ---
+        st.markdown("""
+        <table style="width:100%; text-align:center; border-collapse: collapse; margin-bottom: 20px;">
+            <tr style="background-color:#e2e8f0;">
+                <th style="padding:15px; border: 1px solid #cbd5e1; width:15%;">대상</th>
+                <th style="padding:15px; border: 1px solid #cbd5e1; width:25%;">올림픽 경기에 비유</th>
+                <th style="padding:15px; border: 1px solid #cbd5e1; width:35%;">예술로 볼 수 있는가<br>(근거 포함)</th>
+                <th style="padding:15px; border: 1px solid #cbd5e1; width:25%;">예술로서의 가치</th>
+            </tr>
+            <tr>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">인간의 예술</td>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">인간 선수의 노력과<br>열정이 담긴 경기</td>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">작가의 경험, 관점, 환경이 담겨<br>있으므로 예술이다.</td>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">감상자에게<br>남다른 감동을 줌</td>
+            </tr>
+            <tr>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">인공 지능의 예술</td>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">㉠</td>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">㉡</td>
+                <td style="padding:15px; border: 1px solid #cbd5e1;">㉢</td>
+            </tr>
+        </table>
+        """, unsafe_allow_html=True)
+        
+        # --- 답안 작성란 ---
+        s3_a1 = st.text_input("㉠ 올림픽 경기에 비유:", placeholder="내용을 입력하세요.")
+        s3_a2 = st.text_input("㉡ 예술로 볼 수 있는가 (근거 포함):", placeholder="내용을 입력하세요.")
+        s3_a3 = st.text_input("㉢ 예술로서의 가치:", placeholder="내용을 입력하세요.")
+        
         st.markdown("---")
         st.markdown("[서·논술형 2] 윗글을 활용하여 '인공 지능이 그린 그림을 바라보는 시각'에 대한 설명문을 작성하려 한다. 주어진 첫 문장에 이어지는 내용을 <조건>에 맞추어 작성하시오.")
         draw_gray_box(cond_q2)
