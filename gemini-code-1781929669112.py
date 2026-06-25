@@ -24,7 +24,7 @@ def draw_blue_box(text):
 def draw_gray_box(text):
     st.markdown(f"""
     <div style='background-color: #f5f5f5; padding: 20px; border-radius: 8px; border-left: 6px solid #a1a1aa; margin-bottom: 20px; line-height: 1.6; font-size: 15px;'>
-    <b>&lt;조건&gt;</b><br>
+    &lt;조건&gt;<br>
     {text}
     </div>
     """, unsafe_allow_html=True)
@@ -36,12 +36,12 @@ st.markdown("작성한 답안을 입력한 뒤 문제의 조건에 맞게 작성
 st.markdown("---")
 
 completed_count = sum(st.session_state.completed.values())
-st.markdown(f"**✅ 완료된 문제: {completed_count} / 3**")
+st.markdown(f"✅ 완료된 문제: {completed_count} / 3")
 st.progress(completed_count / 3)
 
 col1, col2 = st.columns([4, 1])
 with col1:
-    st.markdown("1~3번 세트를 모두 제출하면 마지막 탭 **'📚 복습할 내용'**에서 피드백을 한눈에 확인할 수 있어요. 답안을 초기화하고 처음부터 다시 풀고 싶다면 다음의 버튼을 누르세요.")
+    st.markdown("1~3번 세트를 모두 제출하면 마지막 탭 '📚 복습할 내용'에서 피드백을 한눈에 확인할 수 있어요. 답안을 초기화하고 처음부터 다시 풀고 싶다면 다음의 버튼을 누르세요.")
 with col2:
     if st.button("🔄 처음부터 다시 풀기", use_container_width=True):
         reset_all()
@@ -129,7 +129,7 @@ def grade_set3(a1, a2, a3, q2_1, q2_2, vis, vis_eff, aud, aud_eff):
 cond_q2 = """
 <ul style='margin-bottom: 0;'>
 <li>🎯 주어진 문장에 이어지는 문장을 (1), (2)에 각각 하나씩 작성할 것.</li>
-<li>🎯 (1)과 (2)에는 <b>서로 다른 설명 방법이 1가지 이상 활용</b>되어야 하며, 각 문장에 사용된 설명 방법의 명칭을 괄호에 넣어 문장 끝에 기재할 것.</li>
+<li>🎯 (1)과 (2)에는 서로 다른 설명 방법이 1가지 이상 활용되어야 하며, 각 문장에 사용된 설명 방법의 명칭을 괄호에 넣어 문장 끝에 기재할 것.</li>
 <li>🎯 윗글에 제시된 내용만을 활용하여 문장을 구성할 것. (외부 지식 활용 시 오답)</li>
 <li>🎯 (1)과 (2)가 논리적 흐름을 갖고 이어지도록 할 것.</li>
 </ul>
@@ -139,7 +139,7 @@ cond_q3 = """
 <ul style='margin-bottom: 0;'>
 <li>🎯 윗글을 바탕으로 특성이 잘 드러나도록 Ⓐ와 Ⓑ에 들어갈 연출 계획을 세울 것.</li>
 <li>🎯 자신이 설정한 시각/청각 요소가 글의 내용을 전달하는 데 어떤 효과가 있는지 각각 서술할 것.</li>
-<li>🎯 효과를 기술할 때에는 <b>윗글에 제시된 근거를 반드시 포함</b>할 것.</li>
+<li>🎯 효과를 기술할 때에는 윗글에 제시된 근거를 반드시 포함할 것.</li>
 </ul>
 """
 
@@ -151,30 +151,48 @@ with tab1:
     st.subheader("💡 [실전 적용 1] 과제 난이도와 사회적 촉진/억제")
     
     draw_blue_box("""
-    <b>[기자]</b> 심리학 용어인 '사회적 촉진'과 '사회적 억제'를 일상생활, 특히 우리의 학습에 어떻게 적용할 수 있을까요?<br><br>
-    <b>[전문가]</b> 이 두 가지 개념을 알면 상황에 맞춰 유용하게 활용할 수 있습니다. 예를 들어, 비교적 쉬운 취미 생활이나 큰 노력을 들일 필요가 없는 과제를 할 때는 어떨까요?<br><br>
-    <b>[기자]</b> 음, 그냥 집에서 편하게 혼자 하는 게 집중이 잘되지 않을까요?<br><br>
-    <b>[전문가]</b> 그렇지 않습니다. 오히려 집에서 혼자 하는 것보다는 커피숍이나 도서관에서 하는 것이 더 효율적일 수 있습니다. 평소 친숙하고 좋아하는 과목이라면 공부 모임을 만들어서 다른 사람들과 함께 공부하는 것도 좋은 방법이죠.<br><br>
-    <b>[기자]</b> 그렇다면 어렵고 복잡한 과제를 할 때는 어떻게 해야 하나요?<br><br>
-    <b>[전문가]</b> 그럴 때는 반대입니다. 지나치게 어렵거나 도전이 필요한 과제는 충분히 연습하며 익숙해질 때까지 차분하게 혼자 집중하는 시간을 가지는 것이 좋습니다.
+    [기자] 심리학 용어인 '사회적 촉진'과 '사회적 억제'를 일상생활, 특히 우리의 학습에 어떻게 적용할 수 있을까요?<br><br>
+    [전문가] 이 두 가지 개념을 알면 상황에 맞춰 유용하게 활용할 수 있습니다. 예를 들어, 비교적 쉬운 취미 생활이나 큰 노력을 들일 필요가 없는 과제를 할 때는 어떨까요?<br><br>
+    [기자] 음, 그냥 집에서 편하게 혼자 하는 게 집중이 잘되지 않을까요?<br><br>
+    [전문가] 그렇지 않습니다. 오히려 집에서 혼자 하는 것보다는 커피숍이나 도서관에서 하는 것이 더 효율적일 수 있습니다. 평소 친숙하고 좋아하는 과목이라면 공부 모임을 만들어서 다른 사람들과 함께 공부하는 것도 좋은 방법이죠.<br><br>
+    [기자] 그렇다면 어렵고 복잡한 과제를 할 때는 어떻게 해야 하나요?<br><br>
+    [전문가] 그럴 때는 반대입니다. 지나치게 어렵거나 도전이 필요한 과제는 충분히 연습하며 익숙해질 때까지 차분하게 혼자 집중하는 시간을 가지는 것이 좋습니다.
     """)
 
     with st.form("form_set1"):
-        st.markdown("**[서·논술형 1] 윗글을 요약하여 표로 정리하였다. 빈칸 ㉠~㉢에 들어갈 내용을 찾아 쓰시오.**")
-        st.markdown("<span style='color: gray; font-size: 14px;'>* 단답형 문항이므로 짧게 핵심만 입력하세요.</span>", unsafe_allow_html=True)
-        s1_a1 = st.text_input("㉠ 특성 (사회적 촉진):", placeholder="어떤 과제일 때?")
-        s1_a2 = st.text_input("㉡ 효율적인 환경 및 방법 (어려운 과제):")
-        s1_a3 = st.text_input("㉢ 관련된 심리 현상 (어려운 과제):")
+        st.markdown("[서·논술형 1] 윗글을 요약하여 표로 정리하였다. 빈칸 ㉠~㉢에 들어갈 내용을 찾아 쓰시오.")
+        st.markdown("<span style='color: gray; font-size: 14px;'>* 단답형 문항이므로 빈칸 안에 짧게 핵심만 입력하세요.</span>", unsafe_allow_html=True)
         
+        # --- 표 레이아웃 (세트 1) ---
+        h1, h2, h3 = st.columns(3)
+        h1.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>과제의 특성</div>", unsafe_allow_html=True)
+        h2.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>효율적인 환경 및 방법</div>", unsafe_allow_html=True)
+        h3.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>관련된 심리 현상</div>", unsafe_allow_html=True)
+        
+        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+        
+        r1_1, r1_2, r1_3 = st.columns(3)
+        with r1_1: s1_a1 = st.text_input("㉠", placeholder="㉠ 입력", label_visibility="collapsed", key="s1_a1")
+        r1_2.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>커피숍, 도서관 등에서 하거나 모임을 만들어 다른 사람들과 함께 함</div>", unsafe_allow_html=True)
+        r1_3.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>사회적 촉진</div>", unsafe_allow_html=True)
+        
+        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+        
+        r2_1, r2_2, r2_3 = st.columns(3)
+        r2_1.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>지나치게 어렵거나<br>도전이 필요한 과제</div>", unsafe_allow_html=True)
+        with r2_2: s1_a2 = st.text_input("㉡", placeholder="㉡ 입력", label_visibility="collapsed", key="s1_a2")
+        with r2_3: s1_a3 = st.text_input("㉢", placeholder="㉢ 입력", label_visibility="collapsed", key="s1_a3")
+        # ----------------------------
+
         st.markdown("---")
-        st.markdown("**[서·논술형 2] 윗글을 활용하여 '과제 난이도에 따른 효율적인 학습 전략'에 대한 설명문을 작성하려 한다. 주어진 첫 문장에 이어지는 내용을 <조건>에 맞추어 작성하시오.**")
+        st.markdown("[서·논술형 2] 윗글을 활용하여 '과제 난이도에 따른 효율적인 학습 전략'에 대한 설명문을 작성하려 한다. 주어진 첫 문장에 이어지는 내용을 <조건>에 맞추어 작성하시오.")
         draw_gray_box(cond_q2)
         st.markdown("<span style='color: gray; font-size: 14px;'>* 첫 문장: 과제의 특성과 난이도에 따라 우리의 학습 효율을 높이는 방법은 다르게 적용되어야 한다.</span>", unsafe_allow_html=True)
         s1_q2_1 = st.text_area("(1) 첫 번째 문장:", height=68, placeholder="문장 끝에 (설명방법)을 적으세요.")
         s1_q2_2 = st.text_area("(2) 두 번째 문장:", height=68, placeholder="문장 끝에 (설명방법)을 적으세요.")
         
         st.markdown("---")
-        st.markdown("**[서·논술형 3] 윗글을 바탕으로 '상황에 맞는 학습 공간 선택법'을 설명하는 영상을 제작하려 한다. 다음 기획안을 보고 물음에 답하시오.**")
+        st.markdown("[서·논술형 3] 윗글을 바탕으로 '상황에 맞는 학습 공간 선택법'을 설명하는 영상을 제작하려 한다. 다음 기획안을 보고 물음에 답하시오.")
         draw_gray_box(cond_q3)
         st.markdown("<span style='color: gray; font-size: 14px;'>* [장면 2] 어려운 과제를 할 때</span>", unsafe_allow_html=True)
         s1_vis = st.text_area("Ⓐ 시각 요소:", height=68, placeholder="어떤 화면을 보여줄 것인가요?")
@@ -193,30 +211,51 @@ with tab2:
     st.subheader("💡 [실전 적용 2] 전압은 높지만 위험하지 않은 정전기")
     
     draw_blue_box("""
-    <b>[기자]</b> 겨울철 불청객인 '정전기'란 정확히 무엇인지 설명 부탁드립니다.<br><br>
-    <b>[전문가]</b> 정전기란 전하가 정지 상태로 있어 그 분포가 시간적으로 변화하지 않는 전기, 그리고 그로 인한 전기 현상을 말합니다. 쉽게 설명하면 흐르지 않고 머물러 있는 전기라고 해서 "움직이지 아니하여 조용하다."는 뜻을 가진 한자 '정(靜)'을 써서 정전기라고 부르는 것이죠.<br><br>
-    <b>[기자]</b> 우리가 실생활에서 쓰는 전기와는 어떻게 다른가요? 물에 비유해서 설명해 주시면 이해가 쉬울 것 같습니다.<br><br>
-    <b>[전문가]</b> 아주 좋은 비유가 될 수 있습니다. 우리가 실생활에서 쓰는 전기가 '흐르는 물'이라면, 정전기는 '높은 곳에 고여 있는 물'이라고 할 수 있습니다.<br><br>
-    <b>[기자]</b> 정전기가 일어날 때 찌릿한 느낌이 드는데, 혹시 위험하지는 않은가요?<br><br>
-    <b>[전문가]</b> 정전기의 전압은 매우 높지만, 우리가 실생활에서 쓰는 전기와는 다르게 전하가 이동하지 않고 머물러 있어 위험하지는 않습니다. 어마어마하게 높은 곳에 고여 있는 물이지만 떨어지지 않고 있어서 별 피해가 없는 것과 같다고 이해하시면 됩니다.
+    [기자] 겨울철 불청객인 '정전기'란 정확히 무엇인지 설명 부탁드립니다.<br><br>
+    [전문가] 정전기란 전하가 정지 상태로 있어 그 분포가 시간적으로 변화하지 않는 전기, 그리고 그로 인한 전기 현상을 말합니다. 쉽게 설명하면 흐르지 않고 머물러 있는 전기라고 해서 "움직이지 아니하여 조용하다."는 뜻을 가진 한자 '정(靜)'을 써서 정전기라고 부르는 것이죠.<br><br>
+    [기자] 우리가 실생활에서 쓰는 전기와는 어떻게 다른가요? 물에 비유해서 설명해 주시면 이해가 쉬울 것 같습니다.<br><br>
+    [전문가] 아주 좋은 비유가 될 수 있습니다. 우리가 실생활에서 쓰는 전기가 '흐르는 물'이라면, 정전기는 '높은 곳에 고여 있는 물'이라고 할 수 있습니다.<br><br>
+    [기자] 정전기가 일어날 때 찌릿한 느낌이 드는데, 혹시 위험하지는 않은가요?<br><br>
+    [전문가] 정전기의 전압은 매우 높지만, 우리가 실생활에서 쓰는 전기와는 다르게 전하가 이동하지 않고 머물러 있어 위험하지는 않습니다. 어마어마하게 높은 곳에 고여 있는 물이지만 떨어지지 않고 있어서 별 피해가 없는 것과 같다고 이해하시면 됩니다.
     """)
 
     with st.form("form_set2"):
-        st.markdown("**[서·논술형 1] 윗글을 요약하여 표로 정리하였다. 빈칸 ㉠~㉢에 들어갈 내용을 찾아 쓰시오.**")
-        st.markdown("<span style='color: gray; font-size: 14px;'>* 단답형 문항이므로 짧게 핵심만 입력하세요.</span>", unsafe_allow_html=True)
-        s2_a1 = st.text_input("㉠ 물의 상태에 비유:")
-        s2_a2 = st.text_input("㉡ 전하의 상태:")
-        s2_a3 = st.text_input("㉢ 위험성:")
+        st.markdown("[서·논술형 1] 윗글을 요약하여 표로 정리하였다. 빈칸 ㉠~㉢에 들어갈 내용을 찾아 쓰시오.")
+        st.markdown("<span style='color: gray; font-size: 14px;'>* 단답형 문항이므로 빈칸 안에 짧게 핵심만 입력하세요.</span>", unsafe_allow_html=True)
         
+        # --- 표 레이아웃 (세트 2) ---
+        h1, h2, h3, h4 = st.columns([1.5, 2, 2, 2])
+        h1.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>대상</div>", unsafe_allow_html=True)
+        h2.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>물의 상태에 비유</div>", unsafe_allow_html=True)
+        h3.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>전하의 상태</div>", unsafe_allow_html=True)
+        h4.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>위험성</div>", unsafe_allow_html=True)
+
+        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+
+        r1_1, r1_2, r1_3, r1_4 = st.columns([1.5, 2, 2, 2])
+        r1_1.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>실생활 전기</div>", unsafe_allow_html=True)
+        r1_2.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>흐르는 물</div>", unsafe_allow_html=True)
+        r1_3.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>전하가 이동함</div>", unsafe_allow_html=True)
+        r1_4.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>감전 등의 위험이 있음</div>", unsafe_allow_html=True)
+
+        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+
+        r2_1, r2_2, r2_3, r2_4 = st.columns([1.5, 2, 2, 2])
+        r2_1.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>정전기</div>", unsafe_allow_html=True)
+        with r2_2: s2_a1 = st.text_input("㉠", placeholder="㉠ 입력", label_visibility="collapsed", key="s2_a1")
+        with r2_3: s2_a2 = st.text_input("㉡", placeholder="㉡ 입력", label_visibility="collapsed", key="s2_a2")
+        with r2_4: s2_a3 = st.text_input("㉢", placeholder="㉢ 입력", label_visibility="collapsed", key="s2_a3")
+        # ----------------------------
+
         st.markdown("---")
-        st.markdown("**[서·논술형 2] 윗글을 활용하여 '정전기의 특징'에 대한 설명문을 작성하려 한다. 주어진 첫 문장에 이어지는 내용을 <조건>에 맞추어 작성하시오.**")
+        st.markdown("[서·논술형 2] 윗글을 활용하여 '정전기의 특징'에 대한 설명문을 작성하려 한다. 주어진 첫 문장에 이어지는 내용을 <조건>에 맞추어 작성하시오.")
         draw_gray_box(cond_q2)
         st.markdown("<span style='color: gray; font-size: 14px;'>* 첫 문장: 겨울철에 흔히 겪는 정전기는 우리가 평소 집에서 사용하는 전기와는 다른 뚜렷한 특징이 있다.</span>", unsafe_allow_html=True)
         s2_q2_1 = st.text_area("(1) 첫 번째 문장:", height=68, placeholder="문장 끝에 (설명방법)을 적으세요.")
         s2_q2_2 = st.text_area("(2) 두 번째 문장:", height=68, placeholder="문장 끝에 (설명방법)을 적으세요.")
         
         st.markdown("---")
-        st.markdown("**[서·논술형 3] 윗글을 바탕으로 '정전기의 특징'을 설명하는 영상을 제작하려 한다. 다음 기획안을 보고 물음에 답하시오.**")
+        st.markdown("[서·논술형 3] 윗글을 바탕으로 '정전기의 특징'을 설명하는 영상을 제작하려 한다. 다음 기획안을 보고 물음에 답하시오.")
         draw_gray_box(cond_q3)
         st.markdown("<span style='color: gray; font-size: 14px;'>* [장면 2] 정전기 (고여 있는 물)</span>", unsafe_allow_html=True)
         s2_vis = st.text_area("Ⓐ 시각 요소:", height=68)
@@ -235,29 +274,50 @@ with tab3:
     st.subheader("💡 [실전 적용 3] 인공 지능이 그린 그림을 바라보는 시각")
     
     draw_blue_box("""
-    <b>[기자]</b> 최근 생성형 인공 지능이 그린 그림이 미술계에서 큰 화제를 모으고 있습니다. 이 그림을 인간이 만든 예술 작품과 같다고 볼 수 있을까요?<br><br>
-    <b>[전문가]</b> 올림픽 경기를 예로 들어 볼게요. 우리가 올림픽에 열광하는 이유는 선수들이 경기를 위해 기울인 노력이나 열정을 알기 때문입니다. 반면 로봇이 한 번의 실수 없이 완벽하게 피겨 스케이팅을 해내더라도 우리의 마음을 울리지는 못하지요.<br><br>
+    [기자] 최근 생성형 인공 지능이 그린 그림이 미술계에서 큰 화제를 모으고 있습니다. 이 그림을 인간이 만든 예술 작품과 같다고 볼 수 있을까요?<br><br>
+    [전문가] 올림픽 경기를 예로 들어 볼게요. 우리가 올림픽에 열광하는 이유는 선수들이 경기를 위해 기울인 노력이나 열정을 알기 때문입니다. 반면 로봇이 한 번의 실수 없이 완벽하게 피겨 스케이팅을 해내더라도 우리의 마음을 울리지는 못하지요.<br><br>
     이처럼 인간의 작품에는 작가의 고유한 감정이나 철학, 그리고 작가가 살아온 삶의 경험, 세상을 바라보는 관점 같은 요소가 담겨 있으므로 예술로 볼 수 있습니다. 하지만 인공 지능은 감정도 느끼지 못하고 독자적인 철학이나 이야기가 없기 때문에 이를 예술로 보기는 어렵습니다.<br><br>
-    <b>[기자]</b> 그렇다면 인공 지능이 그린 그림은 가치가 전혀 없는 것인가요?<br><br>
-    <b>[전문가]</b> 그렇지는 않습니다. 비록 인간과 같은 감정은 없더라도, 기존 미술계에 큰 변화를 가져왔다는 점에서 분명한 의미가 있습니다. 또한 앞으로 우리가 알고 있던 예술의 범주를 확장할 수 있다는 점에서 상징적인 가치를 지닙니다.
+    [기자] 그렇다면 인공 지능이 그린 그림은 가치가 전혀 없는 것인가요?<br><br>
+    [전문가] 그렇지는 않습니다. 비록 인간과 같은 감정은 없더라도, 기존 미술계에 큰 변화를 가져왔다는 점에서 분명한 의미가 있습니다. 또한 앞으로 우리가 알고 있던 예술의 범주를 확장할 수 있다는 점에서 상징적인 가치를 지닙니다.
     """)
 
     with st.form("form_set3"):
-        st.markdown("**[서·논술형 1] 윗글을 요약하여 표로 정리하였다. 빈칸 ㉠~㉢에 들어갈 내용을 찾아 쓰시오.**")
-        st.markdown("<span style='color: gray; font-size: 14px;'>* 단답형 문항이므로 짧게 핵심만 입력하세요.</span>", unsafe_allow_html=True)
-        s3_a1 = st.text_input("㉠ 올림픽 경기에 비유:")
-        s3_a2 = st.text_input("㉡ 예술로 볼 수 있는가 (근거 포함):")
-        s3_a3 = st.text_input("㉢ 예술로서의 가치:")
+        st.markdown("[서·논술형 1] 윗글을 요약하여 표로 정리하였다. 빈칸 ㉠~㉢에 들어갈 내용을 찾아 쓰시오.")
+        st.markdown("<span style='color: gray; font-size: 14px;'>* 단답형 문항이므로 빈칸 안에 짧게 핵심만 입력하세요.</span>", unsafe_allow_html=True)
         
+        # --- 표 레이아웃 (세트 3) ---
+        h1, h2, h3, h4 = st.columns([1.2, 2, 3, 1.8])
+        h1.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>대상</div>", unsafe_allow_html=True)
+        h2.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>올림픽 경기에 비유</div>", unsafe_allow_html=True)
+        h3.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>예술로 볼 수 있는가<br>(근거 포함)</div>", unsafe_allow_html=True)
+        h4.markdown("<div style='background-color:#e2e8f0; padding:10px; text-align:center; border-radius:5px;'>예술로서의 가치</div>", unsafe_allow_html=True)
+
+        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+
+        r1_1, r1_2, r1_3, r1_4 = st.columns([1.2, 2, 3, 1.8])
+        r1_1.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>인간의 예술</div>", unsafe_allow_html=True)
+        r1_2.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>인간 선수의 노력과<br>열정이 담긴 경기</div>", unsafe_allow_html=True)
+        r1_3.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>작가의 경험, 관점, 환경이 담겨<br>있으므로 예술이다.</div>", unsafe_allow_html=True)
+        r1_4.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>감상자에게<br>남다른 감동을 줌</div>", unsafe_allow_html=True)
+
+        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+
+        r2_1, r2_2, r2_3, r2_4 = st.columns([1.2, 2, 3, 1.8])
+        r2_1.markdown("<div style='padding-top:10px; text-align:center; font-size:14px;'>인공 지능의 예술</div>", unsafe_allow_html=True)
+        with r2_2: s3_a1 = st.text_input("㉠", placeholder="㉠ 입력", label_visibility="collapsed", key="s3_a1")
+        with r2_3: s3_a2 = st.text_input("㉡", placeholder="㉡ 입력", label_visibility="collapsed", key="s3_a2")
+        with r2_4: s3_a3 = st.text_input("㉢", placeholder="㉢ 입력", label_visibility="collapsed", key="s3_a3")
+        # ----------------------------
+
         st.markdown("---")
-        st.markdown("**[서·논술형 2] 윗글을 활용하여 '인공 지능이 그린 그림을 바라보는 시각'에 대한 설명문을 작성하려 한다. 주어진 첫 문장에 이어지는 내용을 <조건>에 맞추어 작성하시오.**")
+        st.markdown("[서·논술형 2] 윗글을 활용하여 '인공 지능이 그린 그림을 바라보는 시각'에 대한 설명문을 작성하려 한다. 주어진 첫 문장에 이어지는 내용을 <조건>에 맞추어 작성하시오.")
         draw_gray_box(cond_q2)
         st.markdown("<span style='color: gray; font-size: 14px;'>* 첫 문장: 인공 지능이 그린 그림이 늘어나는 요즘, 우리는 이 작품들을 어떤 눈으로 바라봐야 할지 생각해야 한다.</span>", unsafe_allow_html=True)
         s3_q2_1 = st.text_area("(1) 첫 번째 문장:", height=68, placeholder="문장 끝에 (설명방법)을 적으세요.")
         s3_q2_2 = st.text_area("(2) 두 번째 문장:", height=68, placeholder="문장 끝에 (설명방법)을 적으세요.")
         
         st.markdown("---")
-        st.markdown("**[서·논술형 3] 윗글을 바탕으로 '인공 지능이 그린 그림을 바라보는 시각'을 설명하는 영상을 제작하려 한다. 다음 기획안을 보고 물음에 답하시오.**")
+        st.markdown("[서·논술형 3] 윗글을 바탕으로 '인공 지능이 그린 그림을 바라보는 시각'을 설명하는 영상을 제작하려 한다. 다음 기획안을 보고 물음에 답하시오.")
         draw_gray_box(cond_q3)
         st.markdown("<span style='color: gray; font-size: 14px;'>* [장면 2] 마음에 울림을 주는 진정한 예술</span>", unsafe_allow_html=True)
         s3_vis = st.text_area("Ⓐ 시각 요소:", height=68)
@@ -287,9 +347,9 @@ with tab4:
             if st.session_state.completed[key]:
                 with st.expander(f"📌 {title} 피드백 확인하기", expanded=True):
                     fb = st.session_state.feedback[key]
-                    st.markdown("**[문항 1]**")
+                    st.markdown("[문항 1]")
                     for msg in fb["q1"]: st.write(msg)
-                    st.markdown("<br>**[문항 2]**", unsafe_allow_html=True)
+                    st.markdown("<br>[문항 2]", unsafe_allow_html=True)
                     for msg in fb["q2"]: st.write(msg)
-                    st.markdown("<br>**[문항 3]**", unsafe_allow_html=True)
+                    st.markdown("<br>[문항 3]", unsafe_allow_html=True)
                     for msg in fb["q3"]: st.write(msg)
