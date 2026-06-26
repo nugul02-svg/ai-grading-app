@@ -107,10 +107,10 @@ with tab1:
         st.markdown("[서·논술형 3] 윗글을 바탕으로 '상황에 맞는 학습 공간 선택법'을 설명하는 영상을 제작하려 한다. 다음 기획안을 보고 물음에 답하시오.")
         draw_gray_box(cond_q3)
         st.markdown("<span style='color: gray; font-size: 14px;'>* [장면 2] 어려운 과제를 할 때</span>", unsafe_allow_html=True)
-        s1_vis = st.text_area("(1) Ⓐ 시각 요소:", height=68)
-        s1_vis_eff = st.text_area("(2) Ⓐ 시각 효과:", height=100)
-        s1_aud = st.text_area("(3) Ⓑ 청각 요소:", height=68)
-        s1_aud_eff = st.text_area("(4) Ⓑ 청각 효과:", height=100)
+        s1_vis = st.text_area("(1) Ⓐ 시각 요소:", height=68, placeholder="어떤 화면을 보여줄 것인가요?")
+        s1_vis_eff = st.text_area("(2) Ⓐ 시각 효과:", height=100, placeholder="지문의 내용을 근거로 효과를 상세히 적어주세요.")
+        s1_aud = st.text_area("(3) Ⓑ 청각 요소:", height=68, placeholder="어떤 소리를 들려줄 것인가요?")
+        s1_aud_eff = st.text_area("(4) Ⓑ 청각 효과:", height=100, placeholder="지문의 내용을 근거로 효과를 상세히 적어주세요.")
         
         if st.form_submit_button("1세트 제출 및 AI 채점하기"):
             with st.spinner("국어 선생님 AI가 답안을 꼼꼼하게 읽고 있습니다..."):
@@ -128,7 +128,7 @@ with tab1:
 
                 각 문항별로 잘한 점과 아쉬운 점을 꼼꼼하게 짚어주는 피드백을 한글로 작성해줘.
                 """
-                st.session_state.feedback['set1'] = ask_gemini_generators = ask_gemini_grading(prompt)
+                st.session_state.feedback['set1'] = ask_gemini_grading(prompt)
                 st.session_state.completed['set1'] = True
                 st.rerun()
 
@@ -143,7 +143,7 @@ with tab2:
 
     with st.form("form_set2"):
         st.markdown("[서·논술형 1] 윗글을 요약하여 표로 정리하였다. 빈칸 ㉠~㉢에 들어갈 내용을 찾아 쓰시오.")
-        st.markdown("<table style='width:100%; text-align:center; border-collapse: collapse; margin-bottom: 20px;'><tr style='background-color:#e2e8f0;'><th style='padding:15px; border: 1px solid #cbd5e1; width:20%;'>대상</th><th style='padding:15px; border: 1px solid #cbd5e1; width:25;'>물의 상태에 비유</th><th style='padding:15px; border: 1px solid #cbd5e1; width:25%;'>전하의 상태</th><th style='padding:15px; border: 1px solid #cbd5e1; width:30%;'>위험성</th></tr><tr><td style='padding:15px; border: 1px solid #cbd5e1;'>실생활 전기</td><td style='padding:15px; border: 1px solid #cbd5e1;'>흐르는 물</td><td style='padding:15px; border: 1px solid #cbd5e1;'>전하가 이동함</td><td style='padding:15px; border: 1px solid #cbd5e1;'>감전 등의 위험이 있음</td></tr><tr><td style='padding:15px; border: 1px solid #cbd5e1;'>정전기</td><td style='padding:15px; border: 1px solid #cbd5e1;'>㉠</td><td style='padding:15px; border: 1px solid #cbd5e1;'>㉡</td><td style='padding:15px; border: 1px solid #cbd5e1;'>㉢</td></tr></table>", unsafe_allow_html=True)
+        st.markdown("<table style='width:100%; text-align:center; border-collapse: collapse; margin-bottom: 20px;'><tr style='background-color:#e2e8f0;'><th style='padding:15px; border: 1px solid #cbd5e1; width:20%;'>대상</th><th style='padding:15px; border: 1px solid #cbd5e1; width:25%;'>물의 상태에 비유</th><th style='padding:15px; border: 1px solid #cbd5e1; width:25%;'>전하의 상태</th><th style='padding:15px; border: 1px solid #cbd5e1; width:30%;'>위험성</th></tr><tr><td style='padding:15px; border: 1px solid #cbd5e1;'>실생활 전기</td><td style='padding:15px; border: 1px solid #cbd5e1;'>흐르는 물</td><td style='padding:15px; border: 1px solid #cbd5e1;'>전하가 이동함</td><td style='padding:15px; border: 1px solid #cbd5e1;'>감전 등의 위험이 있음</td></tr><tr><td style='padding:15px; border: 1px solid #cbd5e1;'>정전기</td><td style='padding:15px; border: 1px solid #cbd5e1;'>㉠</td><td style='padding:15px; border: 1px solid #cbd5e1;'>㉡</td><td style='padding:15px; border: 1px solid #cbd5e1;'>㉢</td></tr></table>", unsafe_allow_html=True)
         s2_a1 = st.text_input("(1) ㉠ 물의 상태에 비유:", placeholder="내용을 입력하세요.")
         s2_a2 = st.text_input("(2) ㉡ 전하의 상태:", placeholder="내용을 입력하세요.")
         s2_a3 = st.text_input("(3) ㉢ 위험성:", placeholder="내용을 입력하세요.")
