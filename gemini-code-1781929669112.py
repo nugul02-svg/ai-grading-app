@@ -16,7 +16,7 @@ def reset_all():
 # --- UI 디자인 컴포넌트 함수 ---
 def draw_side_guide():
     with st.sidebar:
-        st.header("📖 개념 길잡이")
+        st.header("📖 개념 길잡이", anchor=False)
         st.markdown("---")
         
         with st.expander("📝 1. 설명 방법 공식", expanded=True):
@@ -35,25 +35,16 @@ def draw_side_guide():
             st.warning("💡 3번 문제 풀이 팁: 효과를 기술할 때는 윗글의 내용(근거)이 반드시 들어가야 합니다. '보기 좋다'는 오답입니다!")
 
 def draw_blue_box(text):
-    st.markdown(f"""
-    <div style='background-color: #f0f4fa; padding: 20px; border-radius: 8px; color: #1e3a8a; margin-bottom: 20px; line-height: 1.6; font-size: 15px;'>
-    {text}
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f"<div style='background-color: #f0f4fa; padding: 20px; border-radius: 8px; color: #1e3a8a; margin-bottom: 20px; line-height: 1.6; font-size: 15px;'>{text}</div>", unsafe_allow_html=True)
 
 def draw_gray_box(text):
-    st.markdown(f"""
-    <div style='background-color: #f5f5f5; padding: 20px; border-radius: 8px; border-left: 6px solid #a1a1aa; margin-bottom: 20px; line-height: 1.6; font-size: 15px;'>
-    &lt;조건&gt;<br>
-    {text}
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f"<div style='background-color: #f5f5f5; padding: 20px; border-radius: 8px; border-left: 6px solid #a1a1aa; margin-bottom: 20px; line-height: 1.6; font-size: 15px;'>&lt;조건&gt;<br>{text}</div>", unsafe_allow_html=True)
 
 # --- 사이드바 호출 ---
 draw_side_guide()
 
 # --- 상단 레이아웃 ---
-st.title("✏️ [국어] 서·논술형 답안 작성 연습")
+st.title("✏️ [국어] 서·논술형 답안 작성 연습", anchor=False)
 st.markdown("작성한 답안을 입력한 뒤 문제의 조건에 맞게 작성하였는지의 여부를 확인하세요. 수업시간에 배운 내용을 복습할 때 마음이 막막할까봐 만든 자료이므로, 참고로만 활용하세요. 선생님과 수업 시간에 공부한 내용이 답안 작성의 초점이에요 😉")
 
 st.markdown("---")
@@ -149,29 +140,16 @@ def grade_set3(a1, a2, a3, q2_1, q2_2, vis, vis_eff, aud, aud_eff):
     return fb
 
 # --- 공통 조건 텍스트 ---
-cond_q2 = """
-<ul style='margin-bottom: 0;'>
-<li>🎯 주어진 문장에 이어지는 문장을 (1), (2)에 각각 하나씩 작성할 것.</li>
-<li>🎯 (1)과 (2)에는 서로 다른 설명 방법이 1가지 이상 활용되어야 하며, 각 문장에 사용된 설명 방법의 명칭을 괄호에 넣어 문장 끝에 기재할 것.</li>
-<li>🎯 윗글에 제시된 내용만을 활용하여 문장을 구성할 것. (외부 지식 활용 시 오답)</li>
-<li>🎯 (1)과 (2)가 논리적 흐름을 갖고 이어지도록 할 것.</li>
-</ul>
-"""
+cond_q2 = "<ul style='margin-bottom: 0;'><li>🎯 주어진 문장에 이어지는 문장을 (1), (2)에 각각 하나씩 작성할 것.</li><li>🎯 (1)과 (2)에는 서로 다른 설명 방법이 1가지 이상 활용되어야 하며, 각 문장에 사용된 설명 방법의 명칭을 괄호에 넣어 문장 끝에 기재할 것.</li><li>🎯 윗글에 제시된 내용만을 활용하여 문장을 구성할 것. (외부 지식 활용 시 오답)</li><li>🎯 (1)과 (2)가 논리적 흐름을 갖고 이어지도록 할 것.</li></ul>"
 
-cond_q3 = """
-<ul style='margin-bottom: 0;'>
-<li>🎯 윗글을 바탕으로 특성이 잘 드러나도록 Ⓐ와 Ⓑ에 들어갈 연출 계획을 세울 것.</li>
-<li>🎯 자신이 설정한 시각/청각 요소가 글의 내용을 전달하는 데 어떤 효과가 있는지 각각 서술할 것.</li>
-<li>🎯 효과를 기술할 때에는 윗글에 제시된 근거를 반드시 포함할 것.</li>
-</ul>
-"""
+cond_q3 = "<ul style='margin-bottom: 0;'><li>🎯 윗글을 바탕으로 특성이 잘 드러나도록 Ⓐ와 Ⓑ에 들어갈 연출 계획을 세울 것.</li><li>🎯 자신이 설정한 시각/청각 요소가 글의 내용을 전달하는 데 어떤 효과가 있는지 각각 서술할 것.</li><li>🎯 효과를 기술할 때에는 윗글에 제시된 근거를 반드시 포함할 것.</li></ul>"
 
 # --- 탭 구성 ---
 tab1, tab2, tab3, tab4 = st.tabs(["문제 1", "문제 2", "문제 3", "📚 복습할 내용"])
 
 # 탭 1 (사회적 촉진과 억제)
 with tab1:
-    st.subheader("💡 [실전 적용 1] 과제 난이도와 사회적 촉진/억제")
+    st.subheader("💡 [실전 적용 1] 과제 난이도와 사회적 촉진/억제", anchor=False)
     
     draw_blue_box("""
     [기자] 심리학 용어인 '사회적 촉진'과 '사회적 억제'를 일상생활, 특히 우리의 학습에 어떻게 적용할 수 있을까요?<br><br>
@@ -235,7 +213,7 @@ with tab1:
 
 # 탭 2 (정전기)
 with tab2:
-    st.subheader("💡 [실전 적용 2] 전압은 높지만 위험하지 않은 정전기")
+    st.subheader("💡 [실전 적용 2] 전압은 높지만 위험하지 않은 정전기", anchor=False)
     
     draw_blue_box("""
     [기자] 겨울철 불청객인 '정전기'란 정확히 무엇인지 설명 부탁드립니다.<br><br>
@@ -302,7 +280,7 @@ with tab2:
 
 # 탭 3 (인공지능의 예술)
 with tab3:
-    st.subheader("💡 [실전 적용 3] 인공 지능이 그린 그림을 바라보는 시각")
+    st.subheader("💡 [실전 적용 3] 인공 지능이 그린 그림을 바라보는 시각", anchor=False)
     
     draw_blue_box("""
     [기자] 최근 생성형 인공 지능이 그린 그림이 미술계에서 큰 화제를 모으고 있습니다. 이 그림을 인간이 만든 예술 작품과 같다고 볼 수 있을까요?<br><br>
@@ -368,7 +346,7 @@ with tab3:
 
 # 탭 4 (복습할 내용)
 with tab4:
-    st.subheader("📚 제출한 답안 피드백 모아보기")
+    st.subheader("📚 제출한 답안 피드백 모아보기", anchor=False)
     if completed_count == 0:
         st.info("아직 제출된 세트가 없습니다. 문제 탭에서 답안을 먼저 제출해 주세요!")
     else:
