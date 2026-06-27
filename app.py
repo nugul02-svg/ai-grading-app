@@ -102,7 +102,7 @@ def ask_gemini_grading(prompt_content):
     try:
         if not gemini_ready:
             return "❌ API 키가 설정되지 않았습니다. Streamlit Secrets에 GEMINI_API_KEY를 추가해주세요."
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-pro')
         response = model.generate_content(prompt_content)
         return response.text
     except Exception as e:
