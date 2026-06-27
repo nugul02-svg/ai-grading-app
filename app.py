@@ -71,36 +71,29 @@ def draw_blue_info_box(text):
         f"color:#111111; margin-bottom:16px; line-height:1.8; font-size:15px;'>{text}</div>",
         unsafe_allow_html=True)
 
-def step_indicator(current, completed_dict):
-    """문항 진행 상태 표시 (1번·2번·3번 뱃지)"""
-    cols = st.columns(3)
+def step_indicator(set_key, current, completed_dict):
+    """문항 탐색 버튼 — 클릭하면 해당 문항으로 바로 이동"""
     labels = ["1번  빈칸 채우기", "2번  설명문 쓰기", "3번  영상 기획"]
+    cols = st.columns(3)
     for i, (col, label) in enumerate(zip(cols, labels), start=1):
         with col:
-            if completed_dict[i]:
-                st.success(f"✅ {label}")
-            elif i == current:
-                st.info(f"✏️ {label} ← 현재")
-            else:
+            if i == current:
+                # 현재 문항: 파란 박스로 강조, 버튼 아님
                 st.markdown(
-                    f"<div style='background:#f0f0f0; border-radius:8px; padding:10px; "
-                    f"text-align:center; color:#888; font-size:14px;'>⬜ {label}</div>",
+                    f"<div style='background:#1d6fc4; border-radius:8px; padding:11px; "
+                    f"text-align:center; color:#fff; font-size:14px; font-weight:bold;'>"
+                    f"✏️ {label}</div>",
                     unsafe_allow_html=True)
-
-def nav_buttons(set_key, current_step, total=3):
-    """이전/다음 문항 이동 버튼"""
-    c1, c2, c3 = st.columns([1, 4, 1])
-    with c1:
-        if current_step > 1:
-            if st.button("← 이전 문항", key=f"prev_{set_key}"):
-                st.session_state.step[set_key] = current_step - 1
-                st.rerun()
-    with c3:
-        if current_step < total:
-            label = "다음 문항 →"
-            if st.button(label, key=f"next_{set_key}"):
-                st.session_state.step[set_key] = current_step + 1
-                st.rerun()
+            elif completed_dict[i]:
+                # 완료 문항: 초록 버튼, 클릭 가능
+                if st.button(f"✅ {label}", key=f"step_{set_key}_{i}", use_container_width=True):
+                    st.session_state.step[set_key] = i
+                    st.rerun()
+            else:
+                # 미완료 문항: 회색 버튼, 클릭 가능
+                if st.button(f"⬜ {label}", key=f"step_{set_key}_{i}", use_container_width=True):
+                    st.session_state.step[set_key] = i
+                    st.rerun()
 
 # --- AI 채점 ---
 def ask_gemini_grading(prompt_content):
@@ -150,8 +143,8 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
     # 지문 (항상 표시)
     draw_blue_box(passage_html)
 
-    # 진행 상태 표시
-    step_indicator(current, completed)
+    # 진행 상태 표시 (클릭 가능)
+    step_indicator(set_key, current, completed)
     st.markdown("---")
 
     # ── 1번: 빈칸 채우기 ──────────────────────────────
@@ -260,9 +253,7 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
             st.info("📊 AI 피드백")
             st.write(st.session_state.feedback[set_key][3])
 
-    # 이전 / 다음 이동 버튼
-    st.markdown("---")
-    nav_buttons(set_key, current)
+    # (문항 이동은 상단 버튼으로)
 
 
 # ══════════════════════════════════════════════════════
