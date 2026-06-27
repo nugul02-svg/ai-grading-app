@@ -90,19 +90,18 @@ def step_indicator(set_key, current, completed_dict):
                     st.session_state.step[set_key] = i
                     st.rerun()
 
-# --- AI 채점 (최신형 1.5 모델로 교체 및 안전장치 강화) ---
+# --- AI 채점 엔진 ---
 def ask_gemini_grading(prompt_content):
     try:
         if not gemini_ready:
             return "❌ API 키가 설정되지 않았습니다. Streamlit Secrets에 GEMINI_API_KEY를 추가해주세요."
         
-        # 구글 AI 스튜디오 최신 규격인 'gemini-1.5-flash-latest'로 정확히 지정
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        # 가장 빠르고 오류 없는 1.5 flash 모델로 지정
+        model = genai.GenerativeModel('gemini-1.5-flash')
         response = model.generate_content(prompt_content)
         return response.text
     except Exception as e:
-        # 300명 동시 접속 시 발생할 수 있는 오류 친절하게 안내
-        return f"⚠️ 현재 채점 요청이 너무 많아 AI 선생님이 잠시 숨을 고르고 있습니다. 작성하신 답안은 안전하게 보존되어 있으니, 5초 후에 [제출] 버튼을 다시 한번만 눌러주세요! (오류 내용: {e})"
+        return f"⚠️ 현재 채점 요청이 많아 AI가 잠시 쉬고 있습니다. 5초 후에 다시 제출해 주세요! (오류: {e})"
 
 # --- 공통 조건 ---
 cond_q2 = (
@@ -157,7 +156,7 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
                 fb = ask_gemini_grading(prompt)
                 st.session_state.feedback[set_key][1] = fb
                 st.session_state.completed[set_key][1] = True
-                st.rerun()
+                # 무한 루프의 원인이었던 st.rerun() 삭제 완료
 
         if completed[1]:
             st.info("📊 AI 피드백")
@@ -195,7 +194,7 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
                 fb = ask_gemini_grading(prompt)
                 st.session_state.feedback[set_key][2] = fb
                 st.session_state.completed[set_key][2] = True
-                st.rerun()
+                # 무한 루프의 원인이었던 st.rerun() 삭제 완료
 
         if completed[2]:
             st.info("📊 AI 피드백")
@@ -232,7 +231,7 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
                 fb = ask_gemini_grading(prompt)
                 st.session_state.feedback[set_key][3] = fb
                 st.session_state.completed[set_key][3] = True
-                st.rerun()
+                # 무한 루프의 원인이었던 st.rerun() 삭제 완료
 
         if completed[3]:
             st.info("📊 AI 피드백")
