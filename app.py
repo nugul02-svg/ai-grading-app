@@ -4,9 +4,11 @@ import google.generativeai as genai
 st.set_page_config(page_title="서·논술형 답안 작성 연습", layout="wide")
 
 # --- Gemini API 설정 ---
+gemini_ready = False
 try:
     if "GEMINI_API_KEY" in st.secrets:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        gemini_ready = True
     else:
         st.warning("⚠️ Streamlit Secrets에 GEMINI_API_KEY를 설정해주세요.")
 except Exception as e:
@@ -95,9 +97,11 @@ def step_indicator(set_key, current, completed_dict):
                     st.session_state.step[set_key] = i
                     st.rerun()
 
-# --- AI 채점 ---
+# --- AI 채점 (Gemini 엔진) ---
 def ask_gemini_grading(prompt_content):
     try:
+        if not gemini_ready:
+            return "❌ API 키가 설정되지 않았습니다. Streamlit Secrets에 GEMINI_API_KEY를 추가해주세요."
         model = genai.GenerativeModel('gemini-1.5-flash')
         response = model.generate_content(prompt_content)
         return response.text
@@ -131,11 +135,6 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
                q3_plan_html, q3_prompt_kwargs):
     """
     세트 공통 렌더링 함수.
-    - set_key: 'set1' | 'set2' | 'set3'
-    - passage_html: 지문 HTML
-    - q1_*: 1번 문항 관련
-    - q2_*: 2번 문항 관련
-    - q3_*: 3번 문항 관련
     """
     current = st.session_state.step[set_key]
     completed = st.session_state.completed[set_key]
@@ -180,7 +179,7 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
 
     # ── 2번: 설명문 쓰기 ─────────────────────────────
     elif current == 2:
-        st.markdown("**[서·논술형 2]** 윗글을 활용하여 설명문을 작성하려 한다. 주어진 첫 문장에 이어지는 내용을 &lt;조건&gt;에 맞추어 작성하시오.")
+        st.markdown("**[서·논술형 2]** 윗글을 활용하여 설명문을 작성하려 한다. 주어진 첫 문장에 이어지는 내용을 <조건>에 맞추어 작성하시오.")
         draw_gray_box(cond_q2)
         draw_blue_info_box(f"첫 문장: {q2_first_sentence}")
 
@@ -252,9 +251,6 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
         if completed[3]:
             st.info("📊 AI 피드백")
             st.write(st.session_state.feedback[set_key][3])
-
-    # (문항 이동은 상단 버튼으로)
-
 
 # ══════════════════════════════════════════════════════
 # 상단 UI
