@@ -1,4 +1,5 @@
 import streamlit as st
+import re
 
 st.set_page_config(page_title="서·논술형 답안 작성 연습", page_icon="💯", layout="wide")
 
@@ -93,7 +94,7 @@ cond_q3 = (
 )
 
 # ══════════════════════════════════════════════════════
-# [정렬] 채점 로직 함수들
+# 채점 로직 함수들
 # ══════════════════════════════════════════════════════
 
 def is_valid(val, kws):
@@ -146,62 +147,50 @@ def check_q2_issues(a1, a2, passage_keywords):
 
     return issues
 
-def _draw_checklist_feedback(checks, model_answer):
-    st.markdown(
-        "<div style='background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; "
-        "padding:14px 18px; margin-bottom:4px;'>"
-        "<span style='color:#dc2626; font-weight:bold; font-size:15px;'>"
-        "✖ 다음 조건을 확인하세요:</span></div>",
-        unsafe_allow_html=True)
-    for item in checks:
-        st.markdown(
-            f"<div style='display:flex; align-items:flex-start; gap:8px; "
-            f"padding:8px 4px; border-bottom:1px solid #f0f0f0;'>"
-            f"<span style='color:#f59e0b; font-size:16px; flex-shrink:0;'>⚠️</span>"
-            f"<span style='font-size:14px; color:#374151; line-height:1.6;'>{item}</span>"
-            f"</div>",
-            unsafe_allow_html=True)
-    st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
-    with st.expander("📖 모범 답안 보기"):
-        st.markdown(model_answer)
-
+# ── 3번 문항 채점 UI 개선 (요소와 효과 분리) ──
 def _draw_q3_feedback(ans, q3_grade):
     vis_el  = ans.get('q3_vis_el', '')
     vis_eff = ans.get('q3_vis_eff', '')
     aud_el  = ans.get('q3_aud_el', '')
     aud_eff = ans.get('q3_aud_eff', '')
 
-    def grade_pair(el, eff, grade_cfg):
-        problems = []
+    def grade_element(el):
         if not el.strip():
-            problems.append("요소가 입력되지 않았어요.")
+            return False, "❌ 요소가 미입력되었습니다."
+        return True, "✅ 창작 요소 확인"
+
+    def grade_effect(eff, grade_cfg):
         if not eff.strip():
-            problems.append("효과가 입력되지 않았어요.")
-            return False, problems
+            return False, "❌ 효과가 미입력되었습니다."
         eff_clean = eff.replace(" ", "")
         has_kw = any(kw.replace(" ", "") in eff_clean for kw in grade_cfg['eff_kws'])
         if not has_kw:
-            problems.append(grade_cfg['eff_msg'])
-        return len(problems) == 0, problems
+            return False, f"❌ {grade_cfg['eff_msg']}"
+        return True, "✅ 지문 근거 포함 완료"
 
-    vis_ok, vis_problems = grade_pair(vis_el, vis_eff, q3_grade['vis'])
-    aud_ok, aud_problems = grade_pair(aud_el, aud_eff, q3_grade['aud'])
-
-    def render_pair(label, el, eff, ok, problems):
-        color = "#22c55e" if ok else "#ef4444"
-        bg    = "#f0fdf4" if ok else "#fef2f2"
-        icon  = "✅" if ok else "❌"
-        prob_html = "".join(f"<div style='margin-top:5px; font-size:12px; color:#b45309;'>⚠️ {p}</div>" for p in problems)
+    def render_pair(label, el, eff, grade_cfg):
+        el_ok, el_msg = grade_element(el)
+        eff_ok, eff_msg = grade_effect(eff, grade_cfg)
+        
+        box_color = "#22c55e" if (el_ok and eff_ok) else "#ef4444"
+        bg_color = "#f0fdf4" if (el_ok and eff_ok) else "#fef2f2"
+        
         st.markdown(
-            f"<div style='background:{bg}; border-left:4px solid {color}; "
-            f"padding:10px 14px; border-radius:6px; margin:6px 0;'>"
-            f"{icon} <b>{label} 요소:</b> {el if el else '(미입력)'}<br>"
-            f"<span style='font-size:13px; color:#374151;'>효과: {eff if eff else '(미입력)'}</span>"
-            f"{prob_html}</div>",
+            f"<div style='background:{bg_color}; border-left:4px solid {box_color}; "
+            f"padding:12px 16px; border-radius:6px; margin:6px 0;'>"
+            f"<div style='margin-bottom:6px;'>"
+            f"<b>{label} 요소:</b> {el if el else '(미입력)'} "
+            f"<span style='font-size:13px; color:{'#15803d' if el_ok else '#dc2626'}; margin-left:4px;'>{el_msg}</span>"
+            f"</div>"
+            f"<div>"
+            f"<b>{label} 효과:</b> {eff if eff else '(미입력)'} "
+            f"<br><span style='font-size:13px; color:{'#15803d' if eff_ok else '#dc2626'};'>{eff_msg}</span>"
+            f"</div>"
+            f"</div>",
             unsafe_allow_html=True)
 
-    render_pair("Ⓐ 시각", vis_el, vis_eff, vis_ok, vis_problems)
-    render_pair("Ⓑ 청각", aud_el, aud_eff, aud_ok, aud_problems)
+    render_pair("Ⓐ 시각", vis_el, vis_eff, q3_grade['vis'])
+    render_pair("Ⓑ 청각", aud_el, aud_eff, q3_grade['aud'])
 
     st.markdown("<div style='margin-bottom:8px;'></div>", unsafe_allow_html=True)
     with st.expander("📖 모범 답안 보기"):
@@ -432,7 +421,7 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
 # ══════════════════════════════════════════════════════
 # 메인 레이아웃 및 데이터 세팅
 # ══════════════════════════════════════════════════════
-draw_side_guide() # <--- 빠졌던 안내문 스위치를 켰습니다!
+draw_side_guide()
 
 st.title("✏️ [국어] 서·논술형 답안 작성 연습", anchor=False)
 st.markdown("작성한 답안을 입력한 뒤 문제의 조건에 맞게 작성하였는지 확인하세요. 수업 시간에 배운 내용이 답안 작성의 초점이에요 😉")
@@ -525,12 +514,12 @@ with tab1:
         ),
         q3_grade={
             'vis': {
-                'eff_kws': ['차분하게혼자', '혼자집중', '사회적억제', '타인의존재', '혼자하는', '차분한환경', '익숙해질때까지'],
-                'eff_msg': "시각 효과에 지문의 근거가 없어요. '차분하게 혼자 집중해야 한다', '사회적 억제' 등 지문의 표현을 근거로 서술해 주세요.",
+                'eff_kws': ['차분', '혼자', '사회적억제', '타인의존재', '방해', '조용', '학습효율', '집중', '익숙해질때까지'],
+                'eff_msg': "지문의 내용을 근거로 효과를 서술해 주세요. (예: '차분하게 혼자 집중해야 한다', '사회적 억제가 일어난다' 등)",
             },
             'aud': {
-                'eff_kws': ['차분하게혼자', '혼자집중', '사회적억제', '타인의존재', '혼자하는', '조용한환경', '학습효율'],
-                'eff_msg': "청각 효과에 지문의 근거가 없어요. '타인의 존재가 없는 조용한 환경', '혼자 집중해야 효율이 높아진다' 등 지문의 표현을 포함해 주세요.",
+                'eff_kws': ['차분', '혼자', '사회적억제', '타인의존재', '방해', '조용', '학습효율', '집중', '익숙해질때까지'],
+                'eff_msg': "지문의 내용을 근거로 효과를 서술해 주세요. (예: '타인의 존재가 없는 조용한 환경이어야 한다', '혼자 집중해야 효율이 높아진다' 등)",
             },
             'model': (
                 "**예시 답안**\n\n"
@@ -615,19 +604,20 @@ with tab2:
         ),
         q3_grade={
             'vis': {
-                'eff_kws': ['전하가이동하지않', '머물러있', '피해가없', '떨어지지않', '위험하지않', '고여있', '정지'],
-                'eff_msg': "시각 효과에 지문의 근거가 없어요. '전하가 이동하지 않고 머물러 있어 피해가 없다' 등 지문의 표현을 근거로 서술해 주세요.",
+                # 선생님의 피드백 반영: '고인물', '고여', '흐르지', '높은곳' 등 추가
+                'eff_kws': ['이동하지않', '머물러', '피해가없', '떨어지지않', '위험하지', '고여있', '고인물', '정지', '전압', '흐르지', '높은곳'],
+                'eff_msg': "'전하가 이동하지 않고 정지해 있다', '위험하지 않다', '높은 곳에 고인 물과 같다' 등 지문의 표현을 포함하여 서술해 주세요.",
             },
             'aud': {
-                'eff_kws': ['전하가이동하지않', '머물러있', '피해가없', '떨어지지않', '위험하지않', '정지해있', '전압'],
-                'eff_msg': "청각 효과에 지문의 근거가 없어요. '전하가 이동하지 않고 정지해 있는 정전기의 특성', '전압은 높지만 위험하지 않다' 등 지문의 표현을 포함해 주세요.",
+                'eff_kws': ['이동하지않', '머물러', '피해가없', '떨어지지않', '위험하지', '고여있', '고인물', '정지', '전압', '흐르지', '조용하', '높은곳'],
+                'eff_msg': "'전하가 이동하지 않고 정지해 있다', '위험하지 않다', '높은 곳에 고인 물과 같다' 등 지문의 표현을 포함하여 서술해 주세요.",
             },
             'model': (
                 "**예시 답안**\n\n"
                 "Ⓐ 시각 요소: 높은 절벽 위에 잔잔하게 고여 있는 물이 전혀 움직이지 않는 모습을 정지된 화면으로 보여줌.\n"
-                "효과: 정전기는 전하가 이동하지 않고 머물러 있어 아무리 높은 곳에 고여 있어도 떨어지지 않으면 피해가 없다는 지문의 내용을 시각적으로 전달한다.\n\n"
+                "효과: 정전기는 전압이 아무리 높아도 높은 곳에 고인 물과 같아서, 전하가 떨어지거나 이동하지 않으면 피해가 없다는 지문의 내용을 전달한다.\n\n"
                 "Ⓑ 청각 요소: 아무런 소리도 없는 완전한 무음 또는 매우 잔잔한 배경음을 사용함.\n"
-                "효과: 전하가 이동하지 않고 정지해 있는 정전기의 특성을 청각적으로 표현하여, 전압은 높지만 위험하지 않다는 지문의 핵심 내용을 강조한다."
+                "효과: 전하가 흐르지 않고 정지해 있는 정전기의 특성을 청각적으로 표현하여, 전압은 높지만 위험하지 않다는 지문의 핵심 내용을 강조한다."
             ),
         },
     )
@@ -709,12 +699,12 @@ with tab3:
         ),
         q3_grade={
             'vis': {
-                'eff_kws': ['마음을울린다', '마음을울리', '감정', '경험', '관점', '노력과열정', '열정', '감동', '작가의고유한'],
-                'eff_msg': "시각 효과에 지문을 근거로 한 설명이 없어요. '작가의 감정·경험·관점이 담겨 마음을 울린다' 등 지문의 표현을 근거로 서술해 주세요.",
+                'eff_kws': ['마음을울리', '감정', '경험', '관점', '노력', '열정', '감동', '작가의고유한', '철학', '이야기'],
+                'eff_msg': "지문의 내용을 근거로 효과를 서술해 주세요. (예: '작가의 고유한 감정과 철학이 담겨 마음을 울린다' 등)",
             },
             'aud': {
-                'eff_kws': ['노력과열정', '열정을알기때문', '마음을울리', '감동', '올림픽에열광', '선수들의노력'],
-                'eff_msg': "청각 효과에 지문을 근거로 한 설명이 없어요. '올림픽에 열광하는 이유가 선수들의 노력과 열정을 알기 때문' 등 지문의 표현을 포함해 주세요.",
+                'eff_kws': ['마음을울리', '감정', '경험', '관점', '노력', '열정', '감동', '작가의고유한', '철학', '이야기'],
+                'eff_msg': "지문의 내용을 근거로 효과를 서술해 주세요. (예: '선수들의 노력과 열정을 알아서 올림픽에 열광한다' 등)",
             },
             'model': (
                 "**예시 답안**\n\n"
@@ -746,11 +736,23 @@ with tab4:
                 ],
                 'q1_correct': ['㉠ 비교적 쉬운 과제/취미', '㉡ 차분하게 혼자 집중하는 시간을 가짐', '㉢ 사회적 억제'],
                 'q2_passage_keywords': ['커피숍', '도서관', '공부 모임', '사회적 촉진', '사회적 억제', '차분', '혼자', '어렵', '쉬운', '취미', '과제', '난이도'],
-                'q3_checks': [
-                    "시각/청각 요소가 '어려운 과제 → 혼자 집중하는 차분한 환경'이라는 지문의 핵심 내용을 반영해야 합니다.",
-                    "효과 서술에 윗글의 근거(예: '사회적 억제', '혼자 집중해야 효율이 오름')가 구체적으로 포함되어야 합니다.",
-                    "'보기 좋다', '집중이 잘 된다'처럼 주관적 표현만 쓰면 오답입니다. 지문 근거와 연결해야 합니다.",
-                ],
+                'q3_grade': {
+                    'vis': {
+                        'eff_kws': ['차분', '혼자', '사회적억제', '타인의존재', '방해', '조용', '학습효율', '집중', '익숙해질때까지'],
+                        'eff_msg': "지문의 내용을 근거로 효과를 서술해 주세요. (예: '차분하게 혼자 집중해야 한다', '사회적 억제가 일어난다' 등)",
+                    },
+                    'aud': {
+                        'eff_kws': ['차분', '혼자', '사회적억제', '타인의존재', '방해', '조용', '학습효율', '집중', '익숙해질때까지'],
+                        'eff_msg': "지문의 내용을 근거로 효과를 서술해 주세요. (예: '타인의 존재가 없는 조용한 환경이어야 한다', '혼자 집중해야 효율이 높아진다' 등)",
+                    },
+                    'model': (
+                        "**예시 답안**\n\n"
+                        "Ⓐ 시각 요소: 창문이 없는 조용한 독서실에서 혼자 책상에 앉아 문제를 푸는 학생의 모습을 클로즈업으로 보여줌.\n"
+                        "효과: 지나치게 어렵거나 도전이 필요한 과제는 익숙해질 때까지 차분하게 혼자 집중해야 한다는 지문의 내용을 시각적으로 전달한다.\n\n"
+                        "Ⓑ 청각 요소: 시계 초침 소리만 들리는 고요한 배경음을 사용함.\n"
+                        "효과: 타인의 존재가 없는 조용한 환경에서 혼자 집중해야 학습 효율이 높아진다는 지문의 내용을 청각적으로 강조한다."
+                    ),
+                },
             },
             'set2': {
                 'title': '⚡ 정전기',
@@ -762,11 +764,23 @@ with tab4:
                 ],
                 'q1_correct': ['㉠ 높은 곳에 고여 있는 물', '㉡ 전하가 이동하지 않고 머물러 있음', '㉢ 위험하지 않음(별 피해가 없음)'],
                 'q2_passage_keywords': ['정전기', '전하', '흐르는 물', '고여', '이동', '머물', '위험', '전압', '실생활', '정(靜)'],
-                'q3_checks': [
-                    "시각/청각 요소가 '전하가 이동하지 않고 고여 있는 정전기의 성질'을 반영해야 합니다.",
-                    "효과 서술에 윗글의 근거(예: '떨어지지 않아 피해가 없음', '전하가 머물러 있음')가 포함되어야 합니다.",
-                    "'조용하다', '안정적이다'처럼 근거 없는 주관적 표현만 쓰면 오답입니다. 지문 내용과 연결해야 합니다.",
-                ],
+                'q3_grade': {
+                    'vis': {
+                        'eff_kws': ['이동하지않', '머물러', '피해가없', '떨어지지않', '위험하지', '고여있', '고인물', '정지', '전압', '흐르지', '높은곳'],
+                        'eff_msg': "'전하가 이동하지 않고 정지해 있다', '위험하지 않다', '높은 곳에 고인 물과 같다' 등 지문의 표현을 포함하여 서술해 주세요.",
+                    },
+                    'aud': {
+                        'eff_kws': ['이동하지않', '머물러', '피해가없', '떨어지지않', '위험하지', '고여있', '고인물', '정지', '전압', '흐르지', '조용하', '높은곳'],
+                        'eff_msg': "'전하가 이동하지 않고 정지해 있다', '위험하지 않다', '높은 곳에 고인 물과 같다' 등 지문의 표현을 포함하여 서술해 주세요.",
+                    },
+                    'model': (
+                        "**예시 답안**\n\n"
+                        "Ⓐ 시각 요소: 높은 절벽 위에 잔잔하게 고여 있는 물이 전혀 움직이지 않는 모습을 정지된 화면으로 보여줌.\n"
+                        "효과: 정전기는 전압이 아무리 높아도 높은 곳에 고인 물과 같아서, 전하가 떨어지거나 이동하지 않으면 피해가 없다는 지문의 내용을 전달한다.\n\n"
+                        "Ⓑ 청각 요소: 아무런 소리도 없는 완전한 무음 또는 매우 잔잔한 배경음을 사용함.\n"
+                        "효과: 전하가 흐르지 않고 정지해 있는 정전기의 특성을 청각적으로 표현하여, 전압은 높지만 위험하지 않다는 지문의 핵심 내용을 강조한다."
+                    ),
+                },
             },
             'set3': {
                 'title': '🎨 인공지능의 예술',
@@ -778,11 +792,23 @@ with tab4:
                 ],
                 'q1_correct': ['㉠ 로봇이 실수 없이 완벽하게 피겨 스케이팅을 해내는 것', '㉡ 감정이나 철학/이야기가 없어 예술로 보기 어려움', '㉢ 미술계 변화 유발 및 예술 범주 확장이라는 상징적 가치'],
                 'q2_passage_keywords': ['인공 지능', '감정', '철학', '경험', '관점', '예술', '올림픽', '열정', '노력', '마음', '변화', '범주', '확장', '상징', '가치'],
-                'q3_checks': [
-                    "시각/청각 요소가 '작가의 감정, 경험, 철학이 담긴 인간 예술의 특성'을 반영해야 합니다.",
-                    "효과 서술에 윗글의 근거(예: '마음을 울리는 감동', '선수의 노력과 열정')가 포함되어야 합니다.",
-                    "'아름답다', '감동적이다'처럼 근거 없는 주관적 표현만 쓰면 오답입니다. 지문 내용과 연결해야 합니다.",
-                ],
+                'q3_grade': {
+                    'vis': {
+                        'eff_kws': ['마음을울리', '감정', '경험', '관점', '노력', '열정', '감동', '작가의고유한', '철학', '이야기'],
+                        'eff_msg': "지문의 내용을 근거로 효과를 서술해 주세요. (예: '작가의 고유한 감정과 철학이 담겨 마음을 울린다' 등)",
+                    },
+                    'aud': {
+                        'eff_kws': ['마음을울리', '감정', '경험', '관점', '노력', '열정', '감동', '작가의고유한', '철학', '이야기'],
+                        'eff_msg': "지문의 내용을 근거로 효과를 서술해 주세요. (예: '선수들의 노력과 열정을 알아서 올림픽에 열광한다' 등)",
+                    },
+                    'model': (
+                        "**예시 답안**\n\n"
+                        "Ⓐ 시각 요소: 올림픽 피겨 선수가 실수를 이겨내며 눈물을 흘리는 감동적인 장면을 클로즈업으로 보여줌.\n"
+                        "효과: 인간의 작품에는 작가의 고유한 감정, 삶의 경험, 세상을 바라보는 관점이 담겨 있어 감상자의 마음을 울린다는 지문의 내용을 시각적으로 전달한다.\n\n"
+                        "Ⓑ 청각 요소: 선수가 연기를 마쳤을 때 관중들이 함성을 지르고 박수를 치는 소리를 배경음으로 사용함.\n"
+                        "효과: 올림픽에 열광하는 이유가 선수들의 노력과 열정을 알기 때문이라는 지문의 내용을 청각적으로 강조하여, 인간 예술만이 줄 수 있는 감동을 부각한다."
+                    ),
+                },
             },
         }
 
@@ -828,17 +854,8 @@ with tab4:
 
             # ── 3번 복습 ──
             if comp[3]:
-                vis_el  = ans.get('q3_vis_el', '')
-                vis_eff = ans.get('q3_vis_eff', '')
-                aud_el  = ans.get('q3_aud_el', '')
-                aud_eff = ans.get('q3_aud_eff', '')
-                with st.expander("3번 영상 기획 — 체크리스트 확인", expanded=True):
-                    st.markdown(f"**Ⓐ 시각 요소:** {vis_el}")
-                    st.markdown(f"효과: {vis_eff}")
-                    st.markdown(f"**Ⓑ 청각 요소:** {aud_el}")
-                    st.markdown(f"효과: {aud_eff}")
-                    st.markdown("**확인 사항:**")
-                    for chk in rd['q3_checks']:
-                        st.markdown(f"⚠️ {chk}")
+                # 탭 4에서도 분리된 UI( _draw_q3_feedback )를 동일하게 사용하여 일관성 유지
+                with st.expander("3번 영상 기획 피드백 확인", expanded=True):
+                    _draw_q3_feedback(ans, rd['q3_grade'])
 
             st.markdown("---")
