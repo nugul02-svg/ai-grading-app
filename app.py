@@ -93,29 +93,17 @@ cond_q3 = (
 )
 
 # ══════════════════════════════════════════════════════
-# [수정 1] import re 제거 — 공백 제거 방식으로 통일
-# [수정 2] is_valid / is_valid_review를 루프 밖 모듈 수준 함수로 분리
+# [정렬] 채점 로직 함수들을 render_set보다 위에 선언
 # ══════════════════════════════════════════════════════
 
 def is_valid(val, kws):
-    """1번 채점: 공백 제거 후 키워드 포함 여부 + 최소 3글자"""
     val_clean = val.replace(" ", "")
     if len(val_clean) < 3:
         return False
     return any(kw.replace(" ", "") in val_clean for kw in kws)
 
-
 def check_q2_issues(a1, a2, passage_keywords):
-    """
-    2번 채점 공통 로직.
-    - 허용 설명방법 6가지만 인정
-    - 괄호 표기 여부 확인
-    - 중복 설명방법 감지
-    - 외부 지식 감지
-    - 공식 패턴 강요 없음 (형식보다 내용 우선)
-    """
     issues = []
-    # 허용된 설명방법 6가지만 인정
     VALID_METHODS = ['정의', '예시', '인과', '비교와대조', '분류와구분', '분석']
     METHOD_DISPLAY = {
         '정의': '정의', '예시': '예시', '인과': '인과',
@@ -126,7 +114,6 @@ def check_q2_issues(a1, a2, passage_keywords):
     a2_clean = a2.replace(" ", "")
     combined_clean = a1_clean + a2_clean
 
-    # 각 문장에서 허용된 설명방법 추출
     def extract_method(sent_clean):
         for m in VALID_METHODS:
             if m in sent_clean:
@@ -136,48 +123,28 @@ def check_q2_issues(a1, a2, passage_keywords):
     m1 = extract_method(a1_clean)
     m2 = extract_method(a2_clean)
 
-    # 괄호 표기 + 허용 설명방법 사용 여부 확인
     if m1 is None:
-        # 혹시 허용되지 않은 명칭을 쓴 건지 확인
         has_any_bracket = '(' in a1 and ')' in a1
         if has_any_bracket:
-            issues.append(
-                "(1) 괄호 안에 쓴 설명 방법 명칭이 허용된 6가지(정의·예시·인과·비교와 대조·분류와 구분·분석)에 해당하지 않아요. "
-                "정확한 명칭으로 다시 적어주세요."
-            )
+            issues.append("(1) 괄호 안에 쓴 설명 방법 명칭이 허용된 6가지에 해당하지 않아요. 정확한 명칭으로 적어주세요.")
         else:
             issues.append("(1) 문장 끝에 사용한 설명 방법을 괄호로 표기하지 않았어요. 예: 문장 내용. (인과)")
+            
     if m2 is None:
         has_any_bracket = '(' in a2 and ')' in a2
         if has_any_bracket:
-            issues.append(
-                "(2) 괄호 안에 쓴 설명 방법 명칭이 허용된 6가지(정의·예시·인과·비교와 대조·분류와 구분·분석)에 해당하지 않아요. "
-                "정확한 명칭으로 다시 적어주세요."
-            )
+            issues.append("(2) 괄호 안에 쓴 설명 방법 명칭이 허용된 6가지에 해당하지 않아요. 정확한 명칭으로 적어주세요.")
         else:
             issues.append("(2) 문장 끝에 사용한 설명 방법을 괄호로 표기하지 않았어요. 예: 문장 내용. (비교와 대조)")
 
-    # 중복 설명방법 감지 (두 문장 모두 표기한 경우에만)
     if m1 and m2 and m1 == m2:
-        issues.append(
-            f"(1)과 (2) 모두 '{METHOD_DISPLAY[m1]}'을(를) 사용했어요. "
-            f"두 문장에는 서로 다른 설명 방법이 쓰여야 합니다."
-        )
+        issues.append(f"(1)·(2) 모두 '{METHOD_DISPLAY[m1]}'을(를) 사용했어요. 두 문장에는 서로 다른 설명 방법이 쓰여야 합니다.")
 
-    # 외부 지식 감지: 지문 키워드가 하나도 없으면 의심
     has_passage_kw = any(kw.replace(" ", "") in combined_clean for kw in passage_keywords)
     if not has_passage_kw:
-        issues.append(
-            "윗글에 제시된 내용을 활용하지 않은 것으로 보여요. "
-            "지문의 핵심 표현을 문장에 포함해야 해요. (외부 지식 활용 시 오답)"
-        )
+        issues.append("윗글에 제시된 내용을 활용하지 않은 것으로 보여요. 지문의 핵심 표현을 문장에 포함해야 해요. (외부 지식 활용 시 오답)")
 
     return issues
-
-
-# ══════════════════════════════════════════════════════
-# 피드백 렌더링 함수
-# ══════════════════════════════════════════════════════
 
 def _draw_checklist_feedback(checks, model_answer):
     st.markdown(
@@ -198,69 +165,49 @@ def _draw_checklist_feedback(checks, model_answer):
     with st.expander("📖 모범 답안 보기"):
         st.markdown(model_answer)
 
-
 def _draw_q3_feedback(ans, q3_grade):
-    """
-    3번 피드백: 시각/청각 요소(자유 창작) + 효과(지문 근거 필수)를 각각 채점.
-    q3_grade = {
-        'vis': {'eff_kws': [...], 'eff_msg': '...', 'eff_ok_msg': '...'},
-        'aud': {'eff_kws': [...], 'eff_msg': '...', 'eff_ok_msg': '...'},
-        'model': '모범 답안 문자열'
-    }
-    """
     vis_el  = ans.get('q3_vis_el', '')
     vis_eff = ans.get('q3_vis_eff', '')
     aud_el  = ans.get('q3_aud_el', '')
     aud_eff = ans.get('q3_aud_eff', '')
 
-    def grade_pair(el, eff, grade_cfg, label):
-        """요소+효과 한 쌍 채점. 반환: (ok, problems)"""
+    def grade_pair(el, eff, grade_cfg):
         problems = []
         if not el.strip():
             problems.append("요소가 입력되지 않았어요.")
         if not eff.strip():
             problems.append("효과가 입력되지 않았어요.")
             return False, problems
-        # 효과에 지문 근거 키워드 포함 여부
         eff_clean = eff.replace(" ", "")
         has_kw = any(kw.replace(" ", "") in eff_clean for kw in grade_cfg['eff_kws'])
         if not has_kw:
             problems.append(grade_cfg['eff_msg'])
         return len(problems) == 0, problems
 
-    vis_ok, vis_problems = grade_pair(vis_el, vis_eff, q3_grade['vis'], "Ⓐ")
-    aud_ok, aud_problems = grade_pair(aud_el, aud_eff, q3_grade['aud'], "Ⓑ")
+    vis_ok, vis_problems = grade_pair(vis_el, vis_eff, q3_grade['vis'])
+    aud_ok, aud_problems = grade_pair(aud_el, aud_eff, q3_grade['aud'])
 
     def render_pair(label, el, eff, ok, problems):
         color = "#22c55e" if ok else "#ef4444"
         bg    = "#f0fdf4" if ok else "#fef2f2"
         icon  = "✅" if ok else "❌"
-        prob_html = "".join(
-            f"<div style='margin-top:5px; font-size:12px; color:#b45309;'>⚠️ {p}</div>"
-            for p in problems
-        )
+        prob_html = "".join(f"<div style='margin-top:5px; font-size:12px; color:#b45309;'>⚠️ {p}</div>" for p in problems)
         st.markdown(
             f"<div style='background:{bg}; border-left:4px solid {color}; "
             f"padding:10px 14px; border-radius:6px; margin:6px 0;'>"
-            f"{icon} <b>{label} 시각 요소:</b> {el if el else '(미입력)'}<br>"
+            f"{icon} <b>{label} 요소:</b> {el if el else '(미입력)'}<br>"
             f"<span style='font-size:13px; color:#374151;'>효과: {eff if eff else '(미입력)'}</span>"
             f"{prob_html}</div>",
             unsafe_allow_html=True)
 
-    render_pair("Ⓐ", vis_el, vis_eff, vis_ok, vis_problems)
+    render_pair("Ⓐ 시각", vis_el, vis_eff, vis_ok, vis_problems)
     render_pair("Ⓑ 청각", aud_el, aud_eff, aud_ok, aud_problems)
 
     st.markdown("<div style='margin-bottom:8px;'></div>", unsafe_allow_html=True)
     with st.expander("📖 모범 답안 보기"):
         st.markdown(q3_grade['model'])
 
-
 def _draw_q2_feedback(examples, model_answer, a1, a2, passage_keywords, content_checks):
-    """
-    2번 피드백:
-    1) 문장별 ✅/❌ 직접 채점 (형식 + 내용 통합)
-    2) 설명 방법별 예시 문장
-    """
     VALID_METHODS = ['정의', '예시', '인과', '비교와대조', '분류와구분', '분석']
     METHOD_DISPLAY = {
         '정의': '정의', '예시': '예시', '인과': '인과',
@@ -283,47 +230,35 @@ def _draw_q2_feedback(examples, model_answer, a1, a2, passage_keywords, content_
     m1 = extract_method(a1)
     m2 = extract_method(a2)
 
-    # ── 문장별 채점 결과 수집 ───────────────────────────
-    def grade_sent(sent, sent_clean, method, label, other_method, sent_content_kws, passage_keywords):
-        """각 문장의 문제점 리스트 반환. 빈 리스트면 통과."""
+    def grade_sent(sent, sent_clean, method, other_method, sent_content_kws, passage_keywords):
         problems = []
-
-        # 설명방법 표기 여부
         if method is None:
             has_bracket = '(' in sent and ')' in sent
             if has_bracket:
-                problems.append(f"괄호 안의 명칭이 허용된 6가지에 해당하지 않아요.")
+                problems.append("괄호 안의 명칭이 허용된 6가지에 해당하지 않아요.")
             else:
                 problems.append("설명 방법을 괄호로 표기하지 않았어요. 예: 문장. (인과)")
-            return problems  # 설명방법 없으면 내용 채점 생략
+            return problems
 
-        # 같은 방법 중복 (상대 문장과 비교)
         if other_method and method == other_method:
-            problems.append(f"(1)·(2)에 같은 설명 방법 '{METHOD_DISPLAY[method]}'이(가) 중복됐어요.")
+            problems.append(f"문장 (1)과 (2)에 같은 설명 방법 '{METHOD_DISPLAY[method]}'이(가) 중복됐어요.")
 
-        # 지문 키워드 전혀 없음
         if not sent_has_passage_kw(sent, passage_keywords):
             problems.append("지문에 없는 내용(외부 지식)이 사용된 것으로 보여요.")
             return problems
 
-        # 내용 정확성: 이 문장이 담아야 할 지문 정보가 없으면
         if sent_content_kws:
             kws, msg = sent_content_kws
             if not any(kw.replace(" ", "") in sent_clean for kw in kws):
                 problems.append(msg)
-
         return problems
 
-    # content_checks를 문장별로 분배
-    # content_checks 형식: [(키워드목록, 메시지), ...]
-    # 첫 번째 항목은 (1)번, 두 번째는 (2)번에 우선 적용
     sent1_content = content_checks[0] if len(content_checks) > 0 else None
     sent2_content = content_checks[1] if len(content_checks) > 1 else None
 
-    p1 = grade_sent(a1, a1_clean, m1, "(1)", m2, sent1_content, passage_keywords)
-    p2 = grade_sent(a2, a2_clean, m2, "(2)", m1, sent2_content, passage_keywords)
+    p1 = grade_sent(a1, a1_clean, m1, m2, sent1_content, passage_keywords)
+    p2 = grade_sent(a2, a2_clean, m2, m1, sent2_content, passage_keywords)
 
-    # ── 문장별 결과 표시 ────────────────────────────────
     def render_sent_result(label, sent, problems):
         if not sent.strip():
             st.markdown(
@@ -337,21 +272,16 @@ def _draw_q2_feedback(examples, model_answer, a1, a2, passage_keywords, content_
                 f"padding:10px 14px; border-radius:6px; margin:6px 0;'>"
                 f"✅ <b>{label}</b>: {sent}</div>", unsafe_allow_html=True)
         else:
-            problem_html = "".join(
-                f"<div style='margin-top:6px; font-size:12px; color:#b45309;'>⚠️ {p}</div>"
-                for p in problems
-            )
+            problem_html = "".join(f"<div style='margin-top:6px; font-size:12px; color:#b45309;'>⚠️ {p}</div>" for p in problems)
             st.markdown(
                 f"<div style='background:#fef2f2; border-left:4px solid #ef4444; "
                 f"padding:10px 14px; border-radius:6px; margin:6px 0;'>"
-                f"❌ <b>{label}</b>: {sent}"
-                f"{problem_html}</div>", unsafe_allow_html=True)
+                f"❌ <b>{label}</b>: {sent}{problem_html}</div>", unsafe_allow_html=True)
 
     render_sent_result("(1)", a1, p1)
     render_sent_result("(2)", a2, p2)
     st.markdown("<div style='margin-bottom:8px;'></div>", unsafe_allow_html=True)
 
-    # ── 예시 문장: 오류 있을 때 펼친 상태 ───────────────
     has_any_issue = bool(p1) or bool(p2)
     with st.expander("📚 설명 방법별 예시 문장 보기", expanded=has_any_issue):
         st.markdown("설명 방법의 <b>표지어 부분</b>은 <b style='color:#dc2626;'>적색 볼드</b>로 표시했어요.", unsafe_allow_html=True)
@@ -361,7 +291,6 @@ def _draw_q2_feedback(examples, model_answer, a1, a2, passage_keywords, content_
                 f"border-radius:6px; border-left:3px solid #3b82f6;'>"
                 f"<span style='font-weight:700; color:#1d4ed8;'>[{method}]</span> {ex}</div>",
                 unsafe_allow_html=True)
-
 
 # ══════════════════════════════════════════════════════
 # 세트별 문항 렌더링 함수
@@ -449,6 +378,7 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
             st.rerun()
 
         if completed[2]:
+            # [수정] 누락되었던 q2_content_checks 매개변수 연동 완료
             _draw_q2_feedback(
                 q2_examples, q2_model,
                 st.session_state.answers[set_key].get('q2_1', ''),
@@ -500,19 +430,14 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
                 st.session_state.answers[set_key], q3_grade
             )
 
-
 # ══════════════════════════════════════════════════════
-# 상단 UI
+# 메인 레이아웃 및 데이터 세팅
 # ══════════════════════════════════════════════════════
-draw_side_guide()
 st.title("✏️ [국어] 서·논술형 답안 작성 연습", anchor=False)
 st.markdown("작성한 답안을 입력한 뒤 문제의 조건에 맞게 작성하였는지 확인하세요. 수업 시간에 배운 내용이 답안 작성의 초점이에요 😉")
 st.markdown("---")
 
-total_done = sum(
-    sum(st.session_state.completed[s].values())
-    for s in ['set1', 'set2', 'set3']
-)
+total_done = sum(sum(st.session_state.completed[s].values()) for s in ['set1', 'set2', 'set3'])
 st.markdown(f"✅ 완료된 문항: {total_done} / 9")
 st.progress(total_done / 9)
 
@@ -582,7 +507,6 @@ with tab1:
         ),
         q2_passage_keywords=['커피숍', '도서관', '공부 모임', '사회적 촉진', '사회적 억제', '차분', '혼자', '어렵', '쉬운', '취미', '과제', '난이도'],
         q2_content_checks=[
-            # (확인 키워드 목록, 미포함 시 피드백 메시지)
             (['쉬운과제','쉬운취미','비교적쉬운','노력이필요없는','쉬운과목'],
              "(1)·(2) 중 하나는 '비교적 쉬운 과제/취미'에 대한 내용을 담아야 해요. 지문은 쉬운 과제와 어려운 과제를 대비해서 설명하고 있어요."),
             (['사회적억제','사회적촉진'],
@@ -757,7 +681,7 @@ with tab3:
             "인과": "인공 지능은 감정도 느끼지 못하고 독자적인 철학이나 이야기가 없기 <b style='color:#dc2626;'>때문에</b> 그 결과물을 예술로 보기 어렵다. (인과)",
             "비교와 대조": "인간의 작품에는 작가의 감정, 경험, 관점이 담겨 있어 감동을 주는 <b style='color:#dc2626;'>반면</b>, 인공 지능의 그림에는 감정이나 독자적인 철학이 없어 예술로 보기 어렵다. (비교와 대조)",
             "분석": "<span style='color:#1d6fc4; font-weight:bold;'>이 지문에서는 예술 작품의 구성 요소를 나누어 설명하는 내용이 없으므로 분석 방법을 적용하기 어렵습니다.</span>",
-            "분류와 구분": "그림은 감정과 철학의 유무를 <b style='color:#dc2626;'>기준으로</b> 인간의 예술과 인공 지능의 창작물로 <b style='color:#dc2626;'>나뉘며</b>, 둘은 예술적 가치 면에서 다르게 평가된다. (분류와 구분)"
+            "분류와 구분": "그림은 감정과 철학의 유무를 <b style='color:#dc2626;'>기준으로</b> 인간의 예술 and 인공 지능의 창작물로 <b style='color:#dc2626;'>나뉘며</b>, 둘은 예술적 가치 면에서 다르게 평가된다. (분류와 구분)"
         },
         q2_model=(
             "**(1) 인간의 예술에는 작가의 고유한 감정, 철학, 삶의 경험, 세상을 바라보는 관점 등이 담겨 있지만, "
@@ -806,15 +730,14 @@ with tab4:
     st.subheader("📚 제출한 답안 모아보기", anchor=False)
     st.markdown("💬 막히는 내용이 있으면 선생님께 찾아와 여쭤보세요 :)")
     st.markdown("---")
+    
     if total_done == 0:
         st.info("아직 제출된 문항이 없습니다. 각 세트 탭에서 문항을 풀어 주세요!")
     else:
         review_data = {
             'set1': {
                 'title': '🧠 사회적 촉진과 억제',
-                'q1_keywords': [['쉬운 과제', '쉬운 취미', '노력이 필요 없는', '비교적 쉬운'],
-                                 ['혼자 집중', '차분하게 혼자', '혼자 하는 시간'],
-                                 ['사회적 억제']],
+                'q1_keywords': [['쉬운 과제', '쉬운 취미', '노력이 필요 없는', '비교적 쉬운'], ['혼자 집중', '차분하게 혼자', '혼자 하는 시간'], ['사회적 억제']],
                 'q1_hints': [
                     "'쉽다', '취미' 처럼 단어만 쓰면 안 돼요. '비교적 쉬운 과제'처럼 의미가 통하는 구(절)로 작성하세요.",
                     "'혼자'라고만 적으면 부족해요. 어떻게 혼자 해야 하는지('차분하게 혼자', '혼자 집중' 등) 명확히 적으세요.",
@@ -830,9 +753,7 @@ with tab4:
             },
             'set2': {
                 'title': '⚡ 정전기',
-                'q1_keywords': [['고여 있는 물', '고인 물'],
-                                 ['이동하지 않', '머물러 있', '정지해 있'],
-                                 ['위험하지 않', '피해가 없', '안전하']],
+                'q1_keywords': [['고여 있는 물', '고인 물'], ['이동하지 않', '머물러 있', '정지해 있'], ['위험하지 않', '피해가 없', '안전하']],
                 'q1_hints': [
                     "'물'이나 '고여' 단독으로는 틀립니다. '높은 곳에 고여 있는 물'이라는 전체 비유 대상을 적어주세요.",
                     "'이동', '정지' 단어만으로는 안 됩니다. '이동하지 않는다', '머물러 있다' 처럼 구체적인 서술형으로 쓰세요.",
@@ -848,9 +769,7 @@ with tab4:
             },
             'set3': {
                 'title': '🎨 인공지능의 예술',
-                'q1_keywords': [['로봇이 완벽하게', '로봇이 실수 없이', '완벽한 기술'],
-                                 ['감정이 없', '철학이 없', '이야기가 없', '예술로 보기 어렵'],
-                                 ['미술계 변화', '범주 확장', '상징적 가치', '상징적 의미']],
+                'q1_keywords': [['로봇이 완벽하게', '로봇이 실수 없이', '완벽한 기술'], ['감정이 없', '철학이 없', '이야기가 없', '예술로 보기 어렵'], ['미술계 변화', '범주 확장', '상징적 가치', '상징적 의미']],
                 'q1_hints': [
                     "'로봇', '완벽' 등 단어만 나열하면 안 됩니다. '로봇이 완벽하게 피겨 스케이팅을 해내는 것'처럼 전체 비유의 내용을 적어야 해요.",
                     "'감정', '철학' 만 적지 말고, '감정이나 철학이 없어 예술로 보기 어렵다'는 구(절) 단위로 작성하세요.",
@@ -877,25 +796,16 @@ with tab4:
             # ── 1번 복습 ──
             if comp[1]:
                 vals = [ans.get(k, '') for k in ['q1_a', 'q1_b', 'q1_c']]
-                # [수정 2] is_valid를 루프 밖 모듈 수준 함수로 호출
-                results = [is_valid(v, kws) for v, kws in zip(vals, rd['q1_keywords'])]
+                results = [is_valid(v, rd['q1_keywords'][i]) for i, v in enumerate(vals)]
                 all_ok = all(results)
                 labels = ['㉠', '㉡', '㉢']
 
                 with st.expander(f"1번 빈칸 채우기 {'✅' if all_ok else '❌ 보완 필요'}", expanded=not all_ok):
                     for i, (label, val, matched) in enumerate(zip(labels, vals, results)):
                         if matched:
-                            st.markdown(
-                                f"<div style='background:#f0fdf4;border-left:4px solid #22c55e;"
-                                f"padding:8px 12px;border-radius:6px;margin:4px 0;'>"
-                                f"✅ <b>{label}</b>: {val}</div>", unsafe_allow_html=True)
+                            st.markdown(f"<div style='background:#f0fdf4;border-left:4px solid #22c55e;padding:8px 12px;border-radius:6px;margin:4px 0;'>✅ <b>{label}</b>: {val}</div>", unsafe_allow_html=True)
                         else:
-                            st.markdown(
-                                f"<div style='background:#fef2f2;border-left:4px solid #ef4444;"
-                                f"padding:8px 12px;border-radius:6px;margin:4px 0;'>"
-                                f"❌ <b>{label}</b>: {val if val else '(미입력)'}<br>"
-                                f"<span style='font-size:12px;color:#374151;'>📝 {rd['q1_hints'][i]}</span></div>",
-                                unsafe_allow_html=True)
+                            st.markdown(f"<div style='background:#fef2f2;border-left:4px solid #ef4444;padding:8px 12px;border-radius:6px;margin:4px 0;'>❌ <b>{label}</b>: {val if val else '(미입력)'}<br><span style='font-size:12px;color:#374151;'>📝 {rd['q1_hints'][i]}</span></div>", unsafe_allow_html=True)
                     if not all_ok:
                         st.markdown("**모범 답안:**")
                         for c in rd['q1_correct']:
@@ -905,7 +815,6 @@ with tab4:
             if comp[2]:
                 a1 = ans.get('q2_1', '')
                 a2 = ans.get('q2_2', '')
-                # [수정 4] 본 채점과 동일한 check_q2_issues 공통 함수 사용
                 issues_2 = check_q2_issues(a1, a2, rd['q2_passage_keywords'])
 
                 with st.expander(f"2번 설명문 쓰기 {'✅' if not issues_2 else '❌ 보완 필요'}", expanded=bool(issues_2)):
