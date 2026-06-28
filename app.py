@@ -93,7 +93,7 @@ cond_q3 = (
 )
 
 # ══════════════════════════════════════════════════════
-# 채점 및 피드백 공통 독립 함수 (에러 완벽 방지 조치)
+# 채점 및 피드백 공통 함수
 # ══════════════════════════════════════════════════════
 
 def is_valid(val, kws):
@@ -152,22 +152,20 @@ def _draw_q2_feedback(examples, model_answer, a1, a2, passage_keywords):
             st.markdown(f"<div style='background:#f5f5f5; border-left:4px solid #d1d5db; padding:10px 14px; border-radius:6px; margin:6px 0; color:#9ca3af;'><b>{label}</b> (미입력)</div>", unsafe_allow_html=True)
             return
         
-        # 문장별 연관 오류 필터링
         sent_issues = [iss for iss in issues if label in iss]
-        if not is_p1 and "중복됐다" in "".join(issues): # 중복은 양쪽에 표기
+        if not is_p1 and "중복됐다" in "".join(issues): 
             sent_issues.append("문장 (1)과 (2)에 동일한 설명 방법이 중복 사용되었습니다.")
             
+        def sent_has_any_kw(s, kws):
+            sc = s.replace(" ", "")
+            return any(kw.replace(" ", "") in sc for kw in kws)
+
         if not sent_issues and ("지문에 없는" not in "".join(issues) or sent_has_any_kw(sent, passage_keywords)):
             st.markdown(f"<div style='background:#f0fdf4; border-left:4px solid #22c55e; padding:10px 14px; border-radius:6px; margin:6px 0;'>✅ <b>{label}</b>: {sent}</div>", unsafe_allow_html=True)
         else:
-            # 통합 오류 메시지 출력
             display_issues = sent_issues if sent_issues else [iss for iss in issues if "지문에 없는" in iss]
             prob_html = "".join(f"<div style='margin-top:6px; font-size:12px; color:#b45309;'>⚠️ {p}</div>" for p in display_issues)
             st.markdown(f"<div style='background:#fef2f2; border-left:4px solid #ef4444; padding:10px 14px; border-radius:6px; margin:6px 0;'>❌ <b>{label}</b>: {sent}{prob_html}</div>", unsafe_allow_html=True)
-
-    def sent_has_any_kw(sent, kws):
-        sc = sent.replace(" ", "")
-        return any(kw.replace(" ", "") in sc for kw in kws)
 
     render_sent_result("(1)", a1, is_p1=True)
     render_sent_result("(2)", a2, is_p1=False)
@@ -236,7 +234,8 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
         with st.form(f"form_{set_key}_q1"):
             inputs = {}
             for label, key in zip(q1_labels, q1_answer_keys):
-                inputs[key] = st.text_input(label, placeholder="내용을 입력하세요.", value=st.session_state.answers[set_key].get(key, ""))
+                # [해결 핵심] 입력칸마다 고유한 key를 부여하여 충돌(로딩 버그)을 완벽 차단했습니다.
+                inputs[key] = st.text_input(label, placeholder="내용을 입력하세요.", value=st.session_state.answers[set_key].get(key, ""), key=f"text_input_{set_key}_{key}")
             submitted = st.form_submit_button("제출하고 피드백 받기")
 
         if submitted:
@@ -268,8 +267,9 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
         draw_blue_info_box(f"첫 문장: {q2_first_sentence}")
 
         with st.form(f"form_{set_key}_q2"):
-            a1 = st.text_area("(1) 첫 번째 문장:", height=80, placeholder="문장 끝에 (설명방법)을 적으세요.", value=st.session_state.answers[set_key].get('q2_1', ''))
-            a2 = st.text_area("(2) 두 번째 문장:", height=80, placeholder="문장 끝에 (설명방법)을 적으세요.", value=st.session_state.answers[set_key].get('q2_2', ''))
+            # [해결 핵심] 고유한 key 부여
+            a1 = st.text_area("(1) 첫 번째 문장:", height=80, placeholder="문장 끝에 (설명방법)을 적으세요.", value=st.session_state.answers[set_key].get('q2_1', ''), key=f"q2_1_{set_key}")
+            a2 = st.text_area("(2) 두 번째 문장:", height=80, placeholder="문장 끝에 (설명방법)을 적으세요.", value=st.session_state.answers[set_key].get('q2_2', ''), key=f"q2_2_{set_key}")
             submitted = st.form_submit_button("제출하고 피드백 받기")
 
         if submitted:
@@ -288,14 +288,15 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
 
         with st.form(f"form_{set_key}_q3"):
             st.markdown("**(1) Ⓐ 시각 요소**")
-            vis_el = st.text_area("시각 요소:", height=68, placeholder="'~한 사진' 등 구체적인 매체 형태로 작성하세요.", value=st.session_state.answers[set_key].get('q3_vis_el', ''), label_visibility="collapsed")
+            # [해결 핵심] 고유한 key 부여
+            vis_el = st.text_area("시각 요소:", height=68, placeholder="'~한 사진' 등 구체적인 매체 형태로 작성하세요.", value=st.session_state.answers[set_key].get('q3_vis_el', ''), label_visibility="collapsed", key=f"q3_vis_el_{set_key}")
             st.markdown("<span style='font-size:13px; color:#6b7280;'>효과</span>", unsafe_allow_html=True)
-            vis_eff = st.text_area("시각 효과:", height=80, placeholder="지문 근거와 함께 서술하세요.", value=st.session_state.answers[set_key].get('q3_vis_eff', ''), label_visibility="collapsed")
+            vis_eff = st.text_area("시각 효과:", height=80, placeholder="지문 근거와 함께 서술하세요.", value=st.session_state.answers[set_key].get('q3_vis_eff', ''), label_visibility="collapsed", key=f"q3_vis_eff_{set_key}")
             st.markdown("---")
             st.markdown("**(2) Ⓑ 청각 요소**")
-            aud_el = st.text_area("청각 요소:", height=68, placeholder="'~한 배경음악' 등 구체적인 소리 형태로 작성하세요.", value=st.session_state.answers[set_key].get('q3_aud_el', ''), label_visibility="collapsed")
+            aud_el = st.text_area("청각 요소:", height=68, placeholder="'~한 배경음악' 등 구체적인 소리 형태로 작성하세요.", value=st.session_state.answers[set_key].get('q3_aud_el', ''), label_visibility="collapsed", key=f"q3_aud_el_{set_key}")
             st.markdown("<span style='font-size:13px; color:#6b7280;'>효과</span>", unsafe_allow_html=True)
-            aud_eff = st.text_area("청각 효과:", height=80, placeholder="지문 근거와 함께 서술하세요.", value=st.session_state.answers[set_key].get('q3_aud_eff', ''), label_visibility="collapsed")
+            aud_eff = st.text_area("청각 효과:", height=80, placeholder="지문 근거와 함께 서술하세요.", value=st.session_state.answers[set_key].get('q3_aud_eff', ''), label_visibility="collapsed", key=f"q3_aud_eff_{set_key}")
             submitted = st.form_submit_button("제출하고 피드백 받기")
 
         if submitted:
@@ -419,26 +420,28 @@ with tab4:
     st.markdown("💬 막히는 내용이 있으면 선생님께 찾아와 여쭤보세요 :)")
     st.markdown("---")
     
-    # [안전 조치] 복습 화면에서 메인 함수와 동일한 독립 채점 로직 사용 (NameError 원인 완벽 제거)
     sets_info = [
         ('set1', '🧠 사회적 촉진과 억제', ['커피숍', '도서관', '공부 모임', '사회적 촉진', '사회적 억제', '차분', '혼자', '어렵', '쉬운', '취미', '과제', '난이도', '효율', '방해', '연습', '도전']),
         ('set2', '⚡ 정전기', ['정전기', '전하', '흐르는 물', '고여', '이동', '머물', '위험', '전압', '실생활', '정(靜)', '조용', '피해', '현상', '정지상태']),
         ('set3', '🎨 인공지능의 예술', ['인공 지능', '감정', '철학', '경험', '관점', '예술', '올림픽', '열정', '노력', '마음', '변화', '범주', '확장', '상징', '가치', '로봇', '그림', '작품'])
     ]
 
-    for s_key, s_title, s_kws in sets_info:
-        if any(st.session_state.completed[s_key].values()):
-            st.markdown(f"### 📌 {s_title}")
-            ans = st.session_state.answers[s_key]
-            
-            if st.session_state.completed[s_key][2]:
-                with st.expander("2번 설명문 쓰기 복습"):
-                    a1_rev = ans.get('q2_1', '')
-                    a2_rev = ans.get('q2_2', '')
-                    issues_rev = check_q2_issues(a1_rev, a2_rev, s_kws)
-                    st.write(f"(1) {a1_rev}")
-                    st.write(f"(2) {a2_rev}")
-                    if issues_rev:
-                        for iss in issues_rev: st.warning(iss)
-                    else: st.success("조건과 형식을 모두 충족했습니다.")
-            st.markdown("---")
+    if total_done == 0:
+        st.info("아직 제출된 문항이 없습니다. 각 세트 탭에서 문항을 풀어 주세요!")
+    else:
+        for s_key, s_title, s_kws in sets_info:
+            if any(st.session_state.completed[s_key].values()):
+                st.markdown(f"### 📌 {s_title}")
+                ans = st.session_state.answers[s_key]
+                
+                if st.session_state.completed[s_key][2]:
+                    with st.expander("2번 설명문 쓰기 복습"):
+                        a1_rev = ans.get('q2_1', '')
+                        a2_rev = ans.get('q2_2', '')
+                        issues_rev = check_q2_issues(a1_rev, a2_rev, s_kws)
+                        st.write(f"(1) {a1_rev}")
+                        st.write(f"(2) {a2_rev}")
+                        if issues_rev:
+                            for iss in issues_rev: st.warning(iss)
+                        else: st.success("조건과 형식을 모두 충족했습니다.")
+                st.markdown("---")
