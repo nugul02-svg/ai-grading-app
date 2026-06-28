@@ -1,12 +1,8 @@
 import streamlit as st
 
-st.set_page_config(page_title="서·논술형 답안 작성 연습", layout="wide")
-
+st.set_page_config(page_title="서·논술형 답안 작성 연습", page_icon="💯", layout="wide")
 
 # --- 세션 상태 초기화 ---
-# step: 각 세트별 현재 문항 (1, 2, 3)
-# feedback: 각 세트 각 문항별 피드백
-# completed: 각 세트 각 문항별 완료 여부
 for key, default in [
     ('step', {'set1': 1, 'set2': 1, 'set3': 1}),
     ('completed', {'set1': {1: False, 2: False, 3: False},
@@ -60,29 +56,24 @@ def draw_blue_info_box(text):
         unsafe_allow_html=True)
 
 def step_indicator(set_key, current, completed_dict):
-    """문항 탐색 버튼 — 클릭하면 해당 문항으로 바로 이동"""
     labels = ["1번  빈칸 채우기", "2번  설명문 쓰기", "3번  영상 기획"]
     cols = st.columns(3)
     for i, (col, label) in enumerate(zip(cols, labels), start=1):
         with col:
             if i == current:
-                # 현재 문항: 파란 박스로 강조, 버튼 아님
                 st.markdown(
                     f"<div style='background:#1d6fc4; border-radius:8px; padding:11px; "
                     f"text-align:center; color:#fff; font-size:14px; font-weight:bold;'>"
                     f"✏️ {label}</div>",
                     unsafe_allow_html=True)
             elif completed_dict[i]:
-                # 완료 문항: 초록 버튼, 클릭 가능
                 if st.button(f"✅ {label}", key=f"step_{set_key}_{i}", use_container_width=True):
                     st.session_state.step[set_key] = i
                     st.rerun()
             else:
-                # 미완료 문항: 회색 버튼, 클릭 가능
                 if st.button(f"⬜ {label}", key=f"step_{set_key}_{i}", use_container_width=True):
                     st.session_state.step[set_key] = i
                     st.rerun()
-
 
 # --- 공통 조건 ---
 cond_q2 = (
@@ -102,19 +93,87 @@ cond_q3 = (
 )
 
 # ══════════════════════════════════════════════════════
-# 세트별 문항 렌더링 함수
+# [수정 1] import re 제거 — 공백 제거 방식으로 통일
+# [수정 2] is_valid / is_valid_review를 루프 밖 모듈 수준 함수로 분리
+# ══════════════════════════════════════════════════════
+
+def is_valid(val, kws):
+    """1번 채점: 공백 제거 후 키워드 포함 여부 + 최소 3글자"""
+    val_clean = val.replace(" ", "")
+    if len(val_clean) < 3:
+        return False
+    return any(kw.replace(" ", "") in val_clean for kw in kws)
+
+
+def check_q2_issues(a1, a2, passage_keywords):
+    """
+    [수정 4] 본 채점과 복습 탭에서 공통으로 쓰는 2번 채점 로직.
+    외부 지식 감지 + 괄호 표기 + 중복 설명방법 + 공식 불일치를 모두 확인.
+    반환값: issues 리스트
+    """
+    issues = []
+    methods = ['정의', '예시', '인과', '비교와 대조', '분류와 구분', '분석']
+
+    a1_clean = a1.replace(" ", "")
+    a2_clean = a2.replace(" ", "")
+    combined_clean = a1_clean + a2_clean
+
+    # 설명방법 괄호 표기 여부
+    a1_has = any(f"({m.replace(' ','')})" in a1_clean or f"({m.replace(' ','')}안" in a1_clean
+                 or a1_clean.endswith(f"({m.replace(' ','')}")
+                 for m in methods)
+    # 더 단순하고 안정적인 감지
+    a1_has = any(m.replace(" ", "") in a1_clean for m in methods)
+    a2_has = any(m.replace(" ", "") in a2_clean for m in methods)
+
+    found_methods = [m for m in methods if m.replace(" ", "") in combined_clean]
+
+    if not a1_has:
+        issues.append("(1) 문장 끝에 사용한 설명 방법이 괄호로 표기되지 않았거나 오타가 있어요.")
+    if not a2_has:
+        issues.append("(2) 문장 끝에 사용한 설명 방법이 괄호로 표기되지 않았거나 오타가 있어요.")
+    if len(set(found_methods)) < 2 and a1_has and a2_has:
+        issues.append("(1)과 (2)에 서로 다른 설명 방법이 사용되어야 합니다. 현재 같은 방법이 중복된 것으로 보여요.")
+
+    # 외부 지식 감지
+    has_passage_kw = any(kw.replace(" ", "") in combined_clean for kw in passage_keywords)
+    if not has_passage_kw:
+        issues.append("윗글에 제시된 내용을 활용하지 않은 것으로 보여요. 지문의 핵심 표현을 문장에 포함해야 해요. (외부 지식 활용 시 오답)")
+
+    # 설명방법 공식 불일치 감지
+    method_patterns = {
+        '정의':     ['란', '이란', '을말한다', '를말한다'],
+        '예시':     ['예를들어', '예로는', '의예'],
+        '인과':     ['때문에', '이므로', '따라서', '그결과', '기때문'],
+        '비교와대조': ['반면', '공통점', '차이점', '이지만', '에비해', '달리'],
+        '분류와구분': ['나뉜다', '나뉘며', '기준으로', '묶인다'],
+        '분석':     ['이루어져', '구성되어', '으로나누어'],
+    }
+    for m in found_methods:
+        key = m.replace(" ", "")
+        if key in method_patterns:
+            patterns = method_patterns[key]
+            for sent_clean in [a1_clean, a2_clean]:
+                if m.replace(" ", "") in sent_clean:
+                    if not any(p in sent_clean for p in patterns):
+                        issues.append(
+                            f"'{m}'을(를) 표기했지만 실제 문장에서 {m} 방법의 특징적인 공식 표현이 보이지 않아요. "
+                            f"형식과 내용이 일치하는지 확인해 주세요.")
+
+    return issues
+
+
+# ══════════════════════════════════════════════════════
+# 피드백 렌더링 함수
 # ══════════════════════════════════════════════════════
 
 def _draw_checklist_feedback(checks, model_answer):
-    """조건별 체크 항목 + 모범 답안 보기 UI"""
-    # 빨간 경고 헤더
     st.markdown(
         "<div style='background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; "
         "padding:14px 18px; margin-bottom:4px;'>"
         "<span style='color:#dc2626; font-weight:bold; font-size:15px;'>"
         "✖ 다음 조건을 확인하세요:</span></div>",
         unsafe_allow_html=True)
-    # 조건 항목 리스트
     for item in checks:
         st.markdown(
             f"<div style='display:flex; align-items:flex-start; gap:8px; "
@@ -124,24 +183,13 @@ def _draw_checklist_feedback(checks, model_answer):
             f"</div>",
             unsafe_allow_html=True)
     st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
-    # 모범 답안 접기/펼치기
     with st.expander("📖 모범 답안 보기"):
         st.markdown(model_answer)
 
 
-def _draw_q2_feedback(examples, model_answer, a1, a2):
-    """2번 피드백: 조건 불충족 이유 + 설명방법별 예시 + 모범 답안"""
-    # 조건 체크
-    issues = []
-    methods = ['정의','예시','인과','비교와 대조','분류와 구분','분석']
-    combined = a1 + a2
-    found_methods = [m for m in methods if f'({m})' in combined or f'({m}' in combined]
-    if not any(f'({m})' in a1 or f'({m}' in a1 for m in methods):
-        issues.append("(1) 문장 끝에 사용한 설명 방법이 괄호로 표기되지 않았어요.")
-    if not any(f'({m})' in a2 or f'({m}' in a2 for m in methods):
-        issues.append("(2) 문장 끝에 사용한 설명 방법이 괄호로 표기되지 않았어요.")
-    if len(set(found_methods)) < 2:
-        issues.append("(1)과 (2)에 서로 다른 설명 방법이 사용되어야 합니다. 현재 같은 방법이 중복된 것으로 보여요.")
+def _draw_q2_feedback(examples, model_answer, a1, a2, passage_keywords):
+    """[수정 4] check_q2_issues 공통 함수 활용"""
+    issues = check_q2_issues(a1, a2, passage_keywords)
 
     if issues:
         st.markdown(
@@ -158,10 +206,9 @@ def _draw_q2_feedback(examples, model_answer, a1, a2):
                 unsafe_allow_html=True)
         st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
     else:
-        st.success("✅ 조건을 모두 충족했어요! 아래 예시 문장과 비교해 보세요.")
+        st.info("📝 조건 형식은 충족했어요. 아래 예시 문장과 비교하며 내용의 정확성도 확인해 보세요.")
 
-    # 설명방법별 예시 문장
-    with st.expander("📚 설명 방법별 예시 문장 보기 (공식 적용 부분은 밑줄로 표시)"):
+    with st.expander("📚 설명 방법별 예시 문장 보기 (공식 적용 부분은 밑줄 표시)", expanded=bool(issues)):
         st.markdown("각 설명 방법의 **공식이 적용된 부분**은 <u>밑줄</u>로 표시했어요.", unsafe_allow_html=True)
         for method, ex in examples.items():
             st.markdown(
@@ -170,27 +217,19 @@ def _draw_q2_feedback(examples, model_answer, a1, a2):
                 f"<span style='font-weight:700; color:#1d4ed8;'>[{method}]</span> {ex}</div>",
                 unsafe_allow_html=True)
 
-    with st.expander("📖 모범 답안 보기"):
-        st.markdown(model_answer)
 
+# ══════════════════════════════════════════════════════
+# 세트별 문항 렌더링 함수
+# ══════════════════════════════════════════════════════
 
 def render_set(set_key, passage_html, q1_table_html, q1_labels,
                q1_answer_keys, q1_correct, q1_keywords, q1_hints,
-               q2_first_sentence, q2_examples, q2_model,
+               q2_first_sentence, q2_examples, q2_model, q2_passage_keywords,
                q3_plan_html, q3_checks, q3_model):
-    """
-    세트 공통 렌더링 함수.
-    - q1_hints: 각 빈칸 틀렸을 때 보완 안내 문자열 리스트
-    - q2_examples: 설명방법별 예시 문장 딕셔너리
-    - q3_checks: 구체성 체크 안내
-    """
     current = st.session_state.step[set_key]
     completed = st.session_state.completed[set_key]
 
-    # 지문 (항상 표시)
     draw_blue_box(passage_html)
-
-    # 진행 상태 표시 (클릭 가능)
     step_indicator(set_key, current, completed)
     st.markdown("---")
 
@@ -214,7 +253,7 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
         if completed[1]:
             ans = st.session_state.answers[set_key]
             vals = [ans.get(k, '') for k in q1_answer_keys]
-            results = [any(kw in val for kw in kws) for val, kws in zip(vals, q1_keywords)]
+            results = [is_valid(val, kws) for val, kws in zip(vals, q1_keywords)]
             all_correct = all(results)
             labels = ['㉠', '㉡', '㉢']
 
@@ -239,9 +278,9 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
                         f"📝 보완 방법: {q1_hints[i]}</span></div>",
                         unsafe_allow_html=True)
 
-            if not all_correct:
-                with st.expander("📖 모범 답안 보기"):
-                    st.markdown(q1_correct)
+            with st.expander("📖 모범 답안 보기"):
+                for hint in q1_correct.split(','):
+                    st.markdown(f"- {hint.strip()}")
 
     # ── 2번: 설명문 쓰기 ─────────────────────────────
     elif current == 2:
@@ -267,8 +306,9 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
         if completed[2]:
             _draw_q2_feedback(
                 q2_examples, q2_model,
-                st.session_state.answers[set_key].get('q2_1',''),
-                st.session_state.answers[set_key].get('q2_2','')
+                st.session_state.answers[set_key].get('q2_1', ''),
+                st.session_state.answers[set_key].get('q2_2', ''),
+                q2_passage_keywords
             )
 
     # ── 3번: 영상 기획 ───────────────────────────────
@@ -312,8 +352,6 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
         if completed[3]:
             _draw_checklist_feedback(q3_checks, q3_model)
 
-    # (문항 이동은 상단 버튼으로)
-
 
 # ══════════════════════════════════════════════════════
 # 상단 UI
@@ -323,7 +361,6 @@ st.title("✏️ [국어] 서·논술형 답안 작성 연습", anchor=False)
 st.markdown("작성한 답안을 입력한 뒤 문제의 조건에 맞게 작성하였는지 확인하세요. 수업 시간에 배운 내용이 답안 작성의 초점이에요 😉")
 st.markdown("---")
 
-# 전체 완료 현황
 total_done = sum(
     sum(st.session_state.completed[s].values())
     for s in ['set1', 'set2', 'set3']
@@ -341,10 +378,7 @@ with col2:
 
 st.markdown("---")
 
-# ══════════════════════════════════════════════════════
-# 탭
-# ══════════════════════════════════════════════════════
-tab1, tab2, tab3, tab4 = st.tabs(["💯 사회적 촉진", "💯 정전기", "💯 인공지능 예술", "📚 복습할 내용"])
+tab1, tab2, tab3, tab4 = st.tabs(["🧠 사회적 촉진", "⚡ 정전기", "🎨 인공지능 예술", "📚 복습할 내용"])
 
 # ── 탭 1: 사회적 촉진/억제 ────────────────────────────
 with tab1:
@@ -376,11 +410,11 @@ with tab1:
         q1_labels=["(1) ㉠:", "(2) ㉡:", "(3) ㉢:"],
         q1_answer_keys=['q1_a', 'q1_b', 'q1_c'],
         q1_correct="㉠ 비교적 쉬운 과제/취미, ㉡ 차분하게 혼자 집중하는 시간을 가짐, ㉢ 사회적 억제",
-        q1_keywords=[['쉽', '취미', '비교적', '간단', '노력'], ['혼자', '집중', '차분'], ['억제', '사회적 억제']],
+        q1_keywords=[['쉬운 과제', '쉬운 취미', '노력이 필요 없는', '비교적 쉬운'], ['혼자 집중', '차분하게 혼자', '혼자 하는 시간'], ['사회적 억제']],
         q1_hints=[
-            "'쉽다'처럼 형용사 단독 서술은 지칭 대상이 불분명해요. '비교적 쉬운 과제나 취미 활동'처럼 구체적인 명사와 함께 써야 해요.",
-            "혼자 하는 것임을 나타내고, '집중' 또는 '차분'이라는 표현을 포함해야 해요.",
-            "'억제'만 적으면 부족해요. '사회적 억제'라는 용어를 정확히 써야 해요."
+            "'쉽다', '취미' 처럼 단어만 쓰면 안 돼요. '비교적 쉬운 과제'처럼 의미가 통하는 구(절)로 작성하세요.",
+            "'혼자'라고만 적으면 부족해요. 어떻게 혼자 해야 하는지('차분하게 혼자', '혼자 집중' 등) 명확히 적으세요.",
+            "해당 심리 현상의 정확한 전체 용어인 '사회적 억제'를 모두 적어주세요."
         ],
         q2_first_sentence="과제의 특성과 난이도에 따라 우리의 학습 효율을 높이는 방법은 다르게 적용되어야 한다.",
         q2_examples={
@@ -392,13 +426,13 @@ with tab1:
             "분류와 구분": "과제는 <u>난이도를 기준으로</u> 비교적 쉬운 과제와 지나치게 어려운 과제로 <u>나뉘며</u>, 각각에 알맞은 학습 환경이 다르게 적용된다. (분류와 구분)"
         },
         q2_model=(
-            "**예시 답안**\n\n"
-            "(1) 비교적 쉬운 과제나 취미 활동을 할 때는 커피숍이나 도서관처럼 다른 사람이 있는 공간에서 하거나, "
-            "공부 모임을 만들어 함께하는 것이 더 효율적이다. (예시)\n\n"
-            "(2) 반면 지나치게 어렵거나 도전이 필요한 과제를 할 때는 익숙해질 때까지 차분하게 혼자 집중하는 "
+            "**(1) 비교적 쉬운 과제나 취미 활동을 할 때는 커피숍이나 도서관처럼 다른 사람이 있는 공간에서 하거나, "
+            "공부 모임을 만들어 함께하는 것이 더 효율적이다. (예시)**\n\n"
+            "**(2) 반면 지나치게 어렵거나 도전이 필요한 과제를 할 때는 익숙해질 때까지 차분하게 혼자 집중하는 "
             "시간을 갖는 것이 효율적인데, 이는 타인의 존재가 오히려 수행을 방해하는 사회적 억제 현상이 나타나기 "
-            "때문이다. (인과)"
+            "때문이다. (인과)**"
         ),
+        q2_passage_keywords=['커피숍', '도서관', '공부 모임', '사회적 촉진', '사회적 억제', '차분', '혼자', '어렵', '쉬운', '취미', '과제', '난이도'],
         q3_plan_html=(
             "<b>[영상 기획안]</b><br>"
             "◦ 주제: 사회적 촉진과 억제를 활용한 스마트한 공부법<br><br>"
@@ -457,11 +491,11 @@ with tab2:
         q1_labels=["(1) ㉠:", "(2) ㉡:", "(3) ㉢:"],
         q1_answer_keys=['q1_a', 'q1_b', 'q1_c'],
         q1_correct="㉠ 높은 곳에 고여 있는 물, ㉡ 전하가 이동하지 않고 머물러 있음, ㉢ 위험하지 않음(별 피해가 없음)",
-        q1_keywords=[['고여', '높은', '물'], ['이동하지', '머물', '정지', '흐르지'], ['위험하지', '피해', '안전']],
+        q1_keywords=[['고여 있는 물', '고인 물'], ['이동하지 않', '머물러 있', '정지해 있'], ['위험하지 않', '피해가 없', '안전하']],
         q1_hints=[
-            "'높은 곳에 고여 있는 물'이라는 비유 표현을 그대로 쓰거나, 이와 동일한 의미가 담기도록 써야 해요.",
-            "'이동하지 않는다', '머물러 있다', '정지해 있다' 중 하나 이상이 포함되어야 해요.",
-            "'위험하지 않다' 또는 '별 피해가 없다'는 내용이 명확히 드러나야 해요."
+            "'물'이나 '고여' 단독으로는 틀립니다. '높은 곳에 고여 있는 물'이라는 전체 비유 대상을 적어주세요.",
+            "'이동', '정지' 단어만으로는 안 됩니다. '이동하지 않는다', '머물러 있다' 처럼 구체적인 서술형으로 쓰세요.",
+            "단순히 '안전'이라고 쓰기보다 지문의 표현을 빌려 '위험하지 않다' 또는 '피해가 없다'로 정확히 서술하세요."
         ],
         q2_first_sentence="겨울철에 흔히 겪는 정전기는 우리가 평소 집에서 사용하는 전기와는 다른 뚜렷한 특징이 있다.",
         q2_examples={
@@ -473,11 +507,11 @@ with tab2:
             "분류와 구분": "전기는 <u>전하의 이동 여부를 기준으로</u> 전하가 이동하는 실생활 전기와 전하가 머물러 있는 정전기로 <u>나뉜다</u>. (분류와 구분)"
         },
         q2_model=(
-            "**예시 답안**\n\n"
-            "(1) 정전기란 전하가 정지 상태로 있어 흐르지 않고 머물러 있는 전기를 말한다. (정의)\n\n"
-            "(2) 실생활 전기가 흐르는 물처럼 전하가 이동하는 반면, 정전기는 높은 곳에 고여 있는 물처럼 "
-            "전하가 이동하지 않고 머물러 있어 전압이 높아도 위험하지 않다. (비교와 대조)"
+            "**(1) 정전기란 전하가 정지 상태로 있어 흐르지 않고 머물러 있는 전기를 말한다. (정의)**\n\n"
+            "**(2) 실생활 전기가 흐르는 물처럼 전하가 이동하는 반면, 정전기는 높은 곳에 고여 있는 물처럼 "
+            "전하가 이동하지 않고 머물러 있어 전압이 높아도 위험하지 않다. (비교와 대조)**"
         ),
+        q2_passage_keywords=['정전기', '전하', '흐르는 물', '고여', '이동', '머물', '위험', '전압', '실생활', '정(靜)'],
         q3_plan_html=(
             "<b>[영상 기획안]</b><br>"
             "◦ 주제: 전압은 높지만 위험하지 않은 정전기의 비밀<br><br>"
@@ -539,11 +573,11 @@ with tab3:
         q1_labels=["(1) ㉠:", "(2) ㉡:", "(3) ㉢:"],
         q1_answer_keys=['q1_a', 'q1_b', 'q1_c'],
         q1_correct="㉠ 로봇이 실수 없이 완벽하게 피겨 스케이팅을 해내는 것, ㉡ 감정이나 철학/이야기가 없어 예술로 보기 어려움, ㉢ 미술계 변화 유발 및 예술 범주 확장이라는 상징적 가치",
-        q1_keywords=[['로봇', '피겨', '실수', '완벽', '스케이팅'], ['감정', '철학', '이야기', '예술로 보기 어렵', '어렵'], ['변화', '범주', '확장', '상징', '가치']],
+        q1_keywords=[['로봇이 완벽하게', '로봇이 실수 없이', '완벽한 기술'], ['감정이 없', '철학이 없', '이야기가 없', '예술로 보기 어렵'], ['미술계 변화', '범주 확장', '상징적 가치', '상징적 의미']],
         q1_hints=[
-            "'로봇이 실수 없이 완벽하게 피겨 스케이팅을 해내는 것'처럼 로봇의 행위를 비유로 쓴 내용이 들어가야 해요.",
-            "'감정이 없다', '철학이나 이야기가 없다' 등 예술로 보기 어려운 근거가 함께 담겨야 해요.",
-            "'미술계 변화', '예술 범주 확장', '상징적 가치' 중 하나 이상이 포함되어야 해요."
+            "'로봇', '완벽' 등 단어만 나열하면 안 됩니다. '로봇이 완벽하게 피겨 스케이팅을 해내는 것'처럼 전체 비유의 내용을 적어야 해요.",
+            "'감정', '철학' 만 적지 말고, '감정이나 철학이 없어 예술로 보기 어렵다'는 구(절) 단위로 작성하세요.",
+            "'미술계 변화', '예술 범주 확장', '상징적 가치' 중 하나 이상의 구절이 반드시 포함되게 쓰세요."
         ],
         q2_first_sentence="인공 지능이 그린 그림이 늘어나는 요즘, 우리는 이 작품들을 어떤 눈으로 바라봐야 할지 올바르게 생각해야 한다.",
         q2_examples={
@@ -555,12 +589,12 @@ with tab3:
             "분류와 구분": "그림은 <u>감정과 철학의 유무를 기준으로</u> 인간의 예술과 인공 지능의 창작물로 <u>나뉘며</u>, 둘은 예술적 가치 면에서 다르게 평가된다. (분류와 구분)"
         },
         q2_model=(
-            "**예시 답안**\n\n"
-            "(1) 인간의 예술에는 작가의 고유한 감정, 철학, 삶의 경험, 세상을 바라보는 관점 등이 담겨 있지만, "
-            "인공 지능의 그림에는 감정도 독자적인 철학도 없기 때문에 예술로 보기 어렵다. (비교와 대조)\n\n"
-            "(2) 그러나 인공 지능이 그린 그림은 기존 미술계에 큰 변화를 가져왔다는 점과, 앞으로 예술의 범주를 "
-            "확장할 수 있다는 점에서 상징적인 가치를 지닌다. (인과)"
+            "**(1) 인간의 예술에는 작가의 고유한 감정, 철학, 삶의 경험, 세상을 바라보는 관점 등이 담겨 있지만, "
+            "인공 지능의 그림에는 감정도 독자적인 철학도 없기 때문에 예술로 보기 어렵다. (비교와 대조)**\n\n"
+            "**(2) 그러나 인공 지능이 그린 그림은 기존 미술계에 큰 변화를 가져왔다는 점과, 앞으로 예술의 범주를 "
+            "확장할 수 있다는 점에서 상징적인 가치를 지닌다. (인과)**"
         ),
+        q2_passage_keywords=['인공 지능', '감정', '철학', '경험', '관점', '예술', '올림픽', '열정', '노력', '마음', '변화', '범주', '확장', '상징', '가치'],
         q3_plan_html=(
             "<b>[영상 기획안]</b><br>"
             "◦ 주제: 인간의 감정이 담긴 진정한 예술의 가치<br><br>"
@@ -588,30 +622,131 @@ with tab3:
 # ── 탭 4: 복습할 내용 ─────────────────────────────────
 with tab4:
     st.subheader("📚 제출한 답안 모아보기", anchor=False)
+    st.markdown("💬 막히는 내용이 있으면 선생님께 찾아와 여쭤보세요 :)")
+    st.markdown("---")
     if total_done == 0:
         st.info("아직 제출된 문항이 없습니다. 각 세트 탭에서 문항을 풀어 주세요!")
     else:
-        set_titles = {
-            'set1': '🧠 사회적 촉진과 억제',
-            'set2': '⚡ 정전기',
-            'set3': '🎨 인공지능의 예술',
+        review_data = {
+            'set1': {
+                'title': '🧠 사회적 촉진과 억제',
+                'q1_keywords': [['쉬운 과제', '쉬운 취미', '노력이 필요 없는', '비교적 쉬운'],
+                                 ['혼자 집중', '차분하게 혼자', '혼자 하는 시간'],
+                                 ['사회적 억제']],
+                'q1_hints': [
+                    "'쉽다', '취미' 처럼 단어만 쓰면 안 돼요. '비교적 쉬운 과제'처럼 의미가 통하는 구(절)로 작성하세요.",
+                    "'혼자'라고만 적으면 부족해요. 어떻게 혼자 해야 하는지('차분하게 혼자', '혼자 집중' 등) 명확히 적으세요.",
+                    "해당 심리 현상의 정확한 전체 용어인 '사회적 억제'를 모두 적어주세요."
+                ],
+                'q1_correct': ['㉠ 비교적 쉬운 과제/취미', '㉡ 차분하게 혼자 집중하는 시간을 가짐', '㉢ 사회적 억제'],
+                'q2_passage_keywords': ['커피숍', '도서관', '공부 모임', '사회적 촉진', '사회적 억제', '차분', '혼자', '어렵', '쉬운', '취미', '과제', '난이도'],
+                'q3_checks': [
+                    "시각/청각 요소가 '어려운 과제 → 혼자 집중하는 차분한 환경'이라는 지문의 핵심 내용을 반영해야 합니다.",
+                    "효과 서술에 윗글의 근거(예: '사회적 억제', '혼자 집중해야 효율이 오름')가 구체적으로 포함되어야 합니다.",
+                    "'보기 좋다', '집중이 잘 된다'처럼 주관적 표현만 쓰면 오답입니다. 지문 근거와 연결해야 합니다.",
+                ],
+            },
+            'set2': {
+                'title': '⚡ 정전기',
+                'q1_keywords': [['고여 있는 물', '고인 물'],
+                                 ['이동하지 않', '머물러 있', '정지해 있'],
+                                 ['위험하지 않', '피해가 없', '안전하']],
+                'q1_hints': [
+                    "'물'이나 '고여' 단독으로는 틀립니다. '높은 곳에 고여 있는 물'이라는 전체 비유 대상을 적어주세요.",
+                    "'이동', '정지' 단어만으로는 안 됩니다. '이동하지 않는다', '머물러 있다' 처럼 구체적인 서술형으로 쓰세요.",
+                    "단순히 '안전'이라고 쓰기보다 지문의 표현을 빌려 '위험하지 않다' 또는 '피해가 없다'로 정확히 서술하세요."
+                ],
+                'q1_correct': ['㉠ 높은 곳에 고여 있는 물', '㉡ 전하가 이동하지 않고 머물러 있음', '㉢ 위험하지 않음(별 피해가 없음)'],
+                'q2_passage_keywords': ['정전기', '전하', '흐르는 물', '고여', '이동', '머물', '위험', '전압', '실생활', '정(靜)'],
+                'q3_checks': [
+                    "시각/청각 요소가 '전하가 이동하지 않고 고여 있는 정전기의 성질'을 반영해야 합니다.",
+                    "효과 서술에 윗글의 근거(예: '떨어지지 않아 피해가 없음', '전하가 머물러 있음')가 포함되어야 합니다.",
+                    "'조용하다', '안정적이다'처럼 근거 없는 주관적 표현만 쓰면 오답입니다. 지문 내용과 연결해야 합니다.",
+                ],
+            },
+            'set3': {
+                'title': '🎨 인공지능의 예술',
+                'q1_keywords': [['로봇이 완벽하게', '로봇이 실수 없이', '완벽한 기술'],
+                                 ['감정이 없', '철학이 없', '이야기가 없', '예술로 보기 어렵'],
+                                 ['미술계 변화', '범주 확장', '상징적 가치', '상징적 의미']],
+                'q1_hints': [
+                    "'로봇', '완벽' 등 단어만 나열하면 안 됩니다. '로봇이 완벽하게 피겨 스케이팅을 해내는 것'처럼 전체 비유의 내용을 적어야 해요.",
+                    "'감정', '철학' 만 적지 말고, '감정이나 철학이 없어 예술로 보기 어렵다'는 구(절) 단위로 작성하세요.",
+                    "'미술계 변화', '예술 범주 확장', '상징적 가치' 중 하나 이상의 구절이 반드시 포함되게 쓰세요."
+                ],
+                'q1_correct': ['㉠ 로봇이 실수 없이 완벽하게 피겨 스케이팅을 해내는 것', '㉡ 감정이나 철학/이야기가 없어 예술로 보기 어려움', '㉢ 미술계 변화 유발 및 예술 범주 확장이라는 상징적 가치'],
+                'q2_passage_keywords': ['인공 지능', '감정', '철학', '경험', '관점', '예술', '올림픽', '열정', '노력', '마음', '변화', '범주', '확장', '상징', '가치'],
+                'q3_checks': [
+                    "시각/청각 요소가 '작가의 감정, 경험, 철학이 담긴 인간 예술의 특성'을 반영해야 합니다.",
+                    "효과 서술에 윗글의 근거(예: '마음을 울리는 감동', '선수의 노력과 열정')가 포함되어야 합니다.",
+                    "'아름답다', '감동적이다'처럼 근거 없는 주관적 표현만 쓰면 오답입니다. 지문 내용과 연결해야 합니다.",
+                ],
+            },
         }
-        for set_key, set_title in set_titles.items():
-            ans = st.session_state.answers[set_key]
+
+        for set_key, rd in review_data.items():
+            ans  = st.session_state.answers[set_key]
             comp = st.session_state.completed[set_key]
-            if any(comp.values()):
-                st.markdown(f"### 📌 {set_title}")
-                if comp[1]:
-                    with st.expander("1번 빈칸 채우기", expanded=True):
-                        st.markdown(f"- ㉠: **{ans.get('q1_a', '')}**")
-                        st.markdown(f"- ㉡: **{ans.get('q1_b', '')}**")
-                        st.markdown(f"- ㉢: **{ans.get('q1_c', '')}**")
-                if comp[2]:
-                    with st.expander("2번 설명문 쓰기", expanded=True):
-                        st.markdown(f"(1) {ans.get('q2_1', '')}")
-                        st.markdown(f"(2) {ans.get('q2_2', '')}")
-                if comp[3]:
-                    with st.expander("3번 영상 기획", expanded=True):
-                        st.markdown(f"(1) Ⓐ 시각: {ans.get('q3_vis', '')}")
-                        st.markdown(f"(2) Ⓑ 청각: {ans.get('q3_aud', '')}")
-                st.markdown("---")
+            if not any(comp.values()):
+                continue
+
+            st.markdown(f"### 📌 {rd['title']}")
+
+            # ── 1번 복습 ──
+            if comp[1]:
+                vals = [ans.get(k, '') for k in ['q1_a', 'q1_b', 'q1_c']]
+                # [수정 2] is_valid를 루프 밖 모듈 수준 함수로 호출
+                results = [is_valid(v, kws) for v, kws in zip(vals, rd['q1_keywords'])]
+                all_ok = all(results)
+                labels = ['㉠', '㉡', '㉢']
+
+                with st.expander(f"1번 빈칸 채우기 {'✅' if all_ok else '❌ 보완 필요'}", expanded=not all_ok):
+                    for i, (label, val, matched) in enumerate(zip(labels, vals, results)):
+                        if matched:
+                            st.markdown(
+                                f"<div style='background:#f0fdf4;border-left:4px solid #22c55e;"
+                                f"padding:8px 12px;border-radius:6px;margin:4px 0;'>"
+                                f"✅ <b>{label}</b>: {val}</div>", unsafe_allow_html=True)
+                        else:
+                            st.markdown(
+                                f"<div style='background:#fef2f2;border-left:4px solid #ef4444;"
+                                f"padding:8px 12px;border-radius:6px;margin:4px 0;'>"
+                                f"❌ <b>{label}</b>: {val if val else '(미입력)'}<br>"
+                                f"<span style='font-size:12px;color:#374151;'>📝 {rd['q1_hints'][i]}</span></div>",
+                                unsafe_allow_html=True)
+                    if not all_ok:
+                        st.markdown("**모범 답안:**")
+                        for c in rd['q1_correct']:
+                            st.markdown(f"- {c}")
+
+            # ── 2번 복습 ──
+            if comp[2]:
+                a1 = ans.get('q2_1', '')
+                a2 = ans.get('q2_2', '')
+                # [수정 4] 본 채점과 동일한 check_q2_issues 공통 함수 사용
+                issues_2 = check_q2_issues(a1, a2, rd['q2_passage_keywords'])
+
+                with st.expander(f"2번 설명문 쓰기 {'✅' if not issues_2 else '❌ 보완 필요'}", expanded=bool(issues_2)):
+                    st.markdown(f"(1) {a1}")
+                    st.markdown(f"(2) {a2}")
+                    if issues_2:
+                        st.markdown("**보완 필요:**")
+                        for iss in issues_2:
+                            st.markdown(f"⚠️ {iss}")
+
+            # ── 3번 복습 ──
+            if comp[3]:
+                vis_el  = ans.get('q3_vis_el', '')
+                vis_eff = ans.get('q3_vis_eff', '')
+                aud_el  = ans.get('q3_aud_el', '')
+                aud_eff = ans.get('q3_aud_eff', '')
+                with st.expander("3번 영상 기획 — 체크리스트 확인", expanded=True):
+                    st.markdown(f"**Ⓐ 시각 요소:** {vis_el}")
+                    st.markdown(f"효과: {vis_eff}")
+                    st.markdown(f"**Ⓑ 청각 요소:** {aud_el}")
+                    st.markdown(f"효과: {aud_eff}")
+                    st.markdown("**확인 사항:**")
+                    for chk in rd['q3_checks']:
+                        st.markdown(f"⚠️ {chk}")
+
+            st.markdown("---")
