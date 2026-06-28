@@ -199,10 +199,11 @@ def _draw_checklist_feedback(checks, model_answer):
         st.markdown(model_answer)
 
 
-def _draw_q2_feedback(examples, model_answer, a1, a2, passage_keywords):
-    """[수정 4] check_q2_issues 공통 함수 활용"""
+def _draw_q2_feedback(examples, model_answer, a1, a2, passage_keywords, content_checks):
+    """2번 피드백: 조건 오류 → 내용 정확성 → 예시 문장 순서로 표시"""
     issues = check_q2_issues(a1, a2, passage_keywords)
 
+    # 조건 오류가 있으면 먼저 표시
     if issues:
         st.markdown(
             "<div style='background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; "
@@ -217,11 +218,33 @@ def _draw_q2_feedback(examples, model_answer, a1, a2, passage_keywords):
                 f"<span style='font-size:14px; color:#374151; line-height:1.6;'>{item}</span></div>",
                 unsafe_allow_html=True)
         st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
-    else:
-        st.info("📝 조건 형식은 충족했어요. 아래 예시 문장과 비교하며 내용의 정확성도 확인해 보세요.")
 
-    with st.expander("📚 설명 방법별 예시 문장 보기 (공식 적용 부분은 밑줄 표시)", expanded=bool(issues)):
-        st.markdown("각 설명 방법의 **공식이 적용된 부분**은 <u>밑줄</u>로 표시했어요.", unsafe_allow_html=True)
+    # 내용 정확성 채점: 학생 답안에 지문 정보가 실제로 담겼는지 확인
+    combined = (a1 + a2).replace(" ", "")
+    content_issues = []
+    for check_kws, feedback_msg in content_checks:
+        if not any(kw.replace(" ", "") in combined for kw in check_kws):
+            content_issues.append(feedback_msg)
+
+    if content_issues:
+        st.markdown(
+            "<div style='background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; "
+            "padding:12px 16px; margin-bottom:4px;'>"
+            "<span style='color:#c2410c; font-weight:bold;'>📋 내용 정확성을 확인하세요:</span></div>",
+            unsafe_allow_html=True)
+        for item in content_issues:
+            st.markdown(
+                f"<div style='display:flex; align-items:flex-start; gap:8px; "
+                f"padding:8px 4px; border-bottom:1px solid #f0f0f0;'>"
+                f"<span style='color:#f59e0b; flex-shrink:0;'>⚠️</span>"
+                f"<span style='font-size:14px; color:#374151; line-height:1.6;'>{item}</span></div>",
+                unsafe_allow_html=True)
+        st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
+
+    # 예시 문장: 항상 표시 (조건/내용 오류 시 펼친 상태)
+    has_any_issue = bool(issues) or bool(content_issues)
+    with st.expander("📚 설명 방법별 예시 문장 보기", expanded=has_any_issue):
+        st.markdown("설명 방법의 **표지어 부분**은 <b style='color:#dc2626;'>적색 볼드</b>로 표시했어요.", unsafe_allow_html=True)
         for method, ex in examples.items():
             st.markdown(
                 f"<div style='margin-bottom:10px; padding:10px 14px; background:#f9fafb; "
@@ -236,7 +259,7 @@ def _draw_q2_feedback(examples, model_answer, a1, a2, passage_keywords):
 
 def render_set(set_key, passage_html, q1_table_html, q1_labels,
                q1_answer_keys, q1_correct, q1_keywords, q1_hints,
-               q2_first_sentence, q2_examples, q2_model, q2_passage_keywords,
+               q2_first_sentence, q2_examples, q2_model, q2_passage_keywords, q2_content_checks,
                q3_plan_html, q3_checks, q3_model):
     current = st.session_state.step[set_key]
     completed = st.session_state.completed[set_key]
@@ -320,7 +343,8 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
                 q2_examples, q2_model,
                 st.session_state.answers[set_key].get('q2_1', ''),
                 st.session_state.answers[set_key].get('q2_2', ''),
-                q2_passage_keywords
+                q2_passage_keywords,
+                q2_content_checks
             )
 
     # ── 3번: 영상 기획 ───────────────────────────────
@@ -432,7 +456,7 @@ with tab1:
         q2_examples={
             "정의": "<span style='color:#1d6fc4; font-weight:bold;'>이 지문에서는 '사회적 촉진'이나 '사회적 억제'의 정의가 직접 제시되지 않으므로 정의 방법을 적용하기 어렵습니다.</span>",
             "예시": "<b style='color:#dc2626;'>예를 들어</b>, 비교적 쉬운 과제라면 커피숍이나 도서관처럼 사람이 많은 공간에서 하거나 공부 모임을 만들어 함께하는 것이 학습 효율을 높일 수 있다. (예시)",
-            "인과": "지나치게 어렵거나 도전이 필요한 과제는 <b style='color:#dc2626;'>타인의 존재가 수행을 방해하기 때문에</b> 차분하게 혼자 집중하는 시간을 갖는 것이 효율적이다. (인과)",
+            "인과": "지나치게 어렵거나 도전이 필요한 과제는 타인의 존재가 수행을 방해하기 <b style='color:#dc2626;'>때문에</b> 차분하게 혼자 집중하는 시간을 갖는 것이 효율적이다. (인과)",
             "비교와 대조": "비교적 쉬운 과제는 여럿이 함께하는 환경이 효율적인 <b style='color:#dc2626;'>반면</b>, 지나치게 어렵거나 도전이 필요한 과제는 혼자 차분하게 집중하는 환경이 효율적이다. (비교와 대조)",
             "분석": "<span style='color:#1d6fc4; font-weight:bold;'>이 지문에서는 과제나 학습 전략을 구성 요소로 나누어 설명하는 내용이 없으므로 분석 방법을 적용하기 어렵습니다.</span>",
             "분류와 구분": "과제는 <b style='color:#dc2626;'>난이도를 기준으로</b> 비교적 쉬운 과제와 지나치게 어려운 과제로 <b style='color:#dc2626;'>나뉘며</b>, 각각에 알맞은 학습 환경이 다르게 적용된다. (분류와 구분)"
@@ -445,6 +469,13 @@ with tab1:
             "때문이다. (인과)**"
         ),
         q2_passage_keywords=['커피숍', '도서관', '공부 모임', '사회적 촉진', '사회적 억제', '차분', '혼자', '어렵', '쉬운', '취미', '과제', '난이도'],
+        q2_content_checks=[
+            # (확인 키워드 목록, 미포함 시 피드백 메시지)
+            (['쉬운과제','쉬운취미','비교적쉬운','노력이필요없는','쉬운과목'],
+             "(1)·(2) 중 하나는 '비교적 쉬운 과제/취미'에 대한 내용을 담아야 해요. 지문은 쉬운 과제와 어려운 과제를 대비해서 설명하고 있어요."),
+            (['사회적억제','사회적촉진'],
+             "지문의 핵심 개념인 '사회적 촉진' 또는 '사회적 억제'가 문장에 포함되지 않았어요. 설명방법을 활용한 문장에도 지문의 핵심 개념이 드러나야 해요."),
+        ],
         q3_plan_html=(
             "<b>[영상 기획안]</b><br>"
             "◦ 주제: 사회적 촉진과 억제를 활용한 스마트한 공부법<br><br>"
@@ -516,7 +547,7 @@ with tab2:
             "인과": "정전기는 전하가 이동하지 않고 머물러 있기 <b style='color:#dc2626;'>때문에</b> 전압이 아무리 높아도 위험하지 않다. (인과)",
             "비교와 대조": "실생활 전기가 흐르는 물처럼 전하가 이동하는 <b style='color:#dc2626;'>반면</b>, 정전기는 높은 곳에 고여 있는 물처럼 전하가 이동하지 않고 머물러 있어 위험하지 않다. (비교와 대조)",
             "분석": "<span style='color:#1d6fc4; font-weight:bold;'>이 지문에서는 정전기의 구성 요소를 나누어 설명하는 내용이 없으므로 분석 방법을 적용하기 어렵습니다.</span>",
-            "분류와 구분": "전기는 <b style='color:#dc2626;'>전하의 이동 여부를 기준으로</b> 전하가 이동하는 실생활 전기와 전하가 머물러 있는 정전기로 <b style='color:#dc2626;'>나뉜다</b>. (분류와 구분)"
+            "분류와 구분": "전기는 전하의 이동 여부를 <b style='color:#dc2626;'>기준으로</b> 전하가 이동하는 실생활 전기와 전하가 머물러 있는 정전기로 <b style='color:#dc2626;'>나뉜다</b>. (분류와 구분)"
         },
         q2_model=(
             "**(1) 정전기란 전하가 정지 상태로 있어 흐르지 않고 머물러 있는 전기를 말한다. (정의)**\n\n"
@@ -524,6 +555,12 @@ with tab2:
             "전하가 이동하지 않고 머물러 있어 전압이 높아도 위험하지 않다. (비교와 대조)**"
         ),
         q2_passage_keywords=['정전기', '전하', '흐르는 물', '고여', '이동', '머물', '위험', '전압', '실생활', '정(靜)'],
+        q2_content_checks=[
+            (['전하가이동','이동하지않','머물러있','정지','흐르지않'],
+             "정전기의 핵심 특성인 '전하가 이동하지 않고 머물러 있음'이 문장에 드러나지 않았어요. 이것이 정전기를 설명하는 핵심 내용이에요."),
+            (['위험하지않','피해가없','안전'],
+             "정전기가 '위험하지 않다'는 내용이 빠져 있어요. 지문의 결론에 해당하는 중요한 정보예요."),
+        ],
         q3_plan_html=(
             "<b>[영상 기획안]</b><br>"
             "◦ 주제: 전압은 높지만 위험하지 않은 정전기의 비밀<br><br>"
@@ -598,7 +635,7 @@ with tab3:
             "인과": "인공 지능은 감정도 느끼지 못하고 독자적인 철학이나 이야기가 없기 <b style='color:#dc2626;'>때문에</b> 그 결과물을 예술로 보기 어렵다. (인과)",
             "비교와 대조": "인간의 작품에는 작가의 감정, 경험, 관점이 담겨 있어 감동을 주는 <b style='color:#dc2626;'>반면</b>, 인공 지능의 그림에는 감정이나 독자적인 철학이 없어 예술로 보기 어렵다. (비교와 대조)",
             "분석": "<span style='color:#1d6fc4; font-weight:bold;'>이 지문에서는 예술 작품의 구성 요소를 나누어 설명하는 내용이 없으므로 분석 방법을 적용하기 어렵습니다.</span>",
-            "분류와 구분": "그림은 <b style='color:#dc2626;'>감정과 철학의 유무를 기준으로</b> 인간의 예술과 인공 지능의 창작물로 <b style='color:#dc2626;'>나뉘며</b>, 둘은 예술적 가치 면에서 다르게 평가된다. (분류와 구분)"
+            "분류와 구분": "그림은 감정과 철학의 유무를 <b style='color:#dc2626;'>기준으로</b> 인간의 예술과 인공 지능의 창작물로 <b style='color:#dc2626;'>나뉘며</b>, 둘은 예술적 가치 면에서 다르게 평가된다. (분류와 구분)"
         },
         q2_model=(
             "**(1) 인간의 예술에는 작가의 고유한 감정, 철학, 삶의 경험, 세상을 바라보는 관점 등이 담겨 있지만, "
@@ -607,6 +644,12 @@ with tab3:
             "확장할 수 있다는 점에서 상징적인 가치를 지닌다. (인과)**"
         ),
         q2_passage_keywords=['인공 지능', '감정', '철학', '경험', '관점', '예술', '올림픽', '열정', '노력', '마음', '변화', '범주', '확장', '상징', '가치'],
+        q2_content_checks=[
+            (['감정이없','철학이없','이야기가없','예술로보기어렵','감정도느끼지못','독자적인철학'],
+             "인공 지능이 예술로 보기 어려운 이유(감정·철학·이야기가 없음)가 문장에 드러나지 않았어요. 지문의 핵심 근거예요."),
+            (['미술계변화','범주확장','범주를확장','상징적가치','상징적의미'],
+             "인공 지능 예술의 가치(미술계 변화, 예술 범주 확장, 상징적 가치) 중 하나 이상이 문장에 포함되어야 해요."),
+        ],
         q3_plan_html=(
             "<b>[영상 기획안]</b><br>"
             "◦ 주제: 인간의 감정이 담긴 진정한 예술의 가치<br><br>"
