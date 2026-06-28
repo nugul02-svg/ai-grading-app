@@ -105,17 +105,84 @@ cond_q3 = (
 # 세트별 문항 렌더링 함수
 # ══════════════════════════════════════════════════════
 
+def _draw_checklist_feedback(checks, model_answer):
+    """조건별 체크 항목 + 모범 답안 보기 UI"""
+    # 빨간 경고 헤더
+    st.markdown(
+        "<div style='background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; "
+        "padding:14px 18px; margin-bottom:4px;'>"
+        "<span style='color:#dc2626; font-weight:bold; font-size:15px;'>"
+        "✖ 다음 조건을 확인하세요:</span></div>",
+        unsafe_allow_html=True)
+    # 조건 항목 리스트
+    for item in checks:
+        st.markdown(
+            f"<div style='display:flex; align-items:flex-start; gap:8px; "
+            f"padding:8px 4px; border-bottom:1px solid #f0f0f0;'>"
+            f"<span style='color:#f59e0b; font-size:16px; flex-shrink:0;'>⚠️</span>"
+            f"<span style='font-size:14px; color:#374151; line-height:1.6;'>{item}</span>"
+            f"</div>",
+            unsafe_allow_html=True)
+    st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
+    # 모범 답안 접기/펼치기
+    with st.expander("📖 모범 답안 보기"):
+        st.markdown(model_answer)
+
+
+def _draw_q2_feedback(examples, model_answer, a1, a2):
+    """2번 피드백: 조건 불충족 이유 + 설명방법별 예시 + 모범 답안"""
+    # 조건 체크
+    issues = []
+    methods = ['정의','예시','인과','비교와 대조','분류와 구분','분석']
+    combined = a1 + a2
+    found_methods = [m for m in methods if f'({m})' in combined or f'({m}' in combined]
+    if not any(f'({m})' in a1 or f'({m}' in a1 for m in methods):
+        issues.append("(1) 문장 끝에 사용한 설명 방법이 괄호로 표기되지 않았어요.")
+    if not any(f'({m})' in a2 or f'({m}' in a2 for m in methods):
+        issues.append("(2) 문장 끝에 사용한 설명 방법이 괄호로 표기되지 않았어요.")
+    if len(set(found_methods)) < 2:
+        issues.append("(1)과 (2)에 서로 다른 설명 방법이 사용되어야 합니다. 현재 같은 방법이 중복된 것으로 보여요.")
+
+    if issues:
+        st.markdown(
+            "<div style='background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; "
+            "padding:12px 16px; margin-bottom:4px;'>"
+            "<span style='color:#dc2626; font-weight:bold;'>✖ 다음 조건을 확인하세요:</span></div>",
+            unsafe_allow_html=True)
+        for item in issues:
+            st.markdown(
+                f"<div style='display:flex; align-items:flex-start; gap:8px; "
+                f"padding:8px 4px; border-bottom:1px solid #f0f0f0;'>"
+                f"<span style='color:#f59e0b; flex-shrink:0;'>⚠️</span>"
+                f"<span style='font-size:14px; color:#374151; line-height:1.6;'>{item}</span></div>",
+                unsafe_allow_html=True)
+        st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
+    else:
+        st.success("✅ 조건을 모두 충족했어요! 아래 예시 문장과 비교해 보세요.")
+
+    # 설명방법별 예시 문장
+    with st.expander("📚 설명 방법별 예시 문장 보기 (공식 적용 부분은 밑줄로 표시)"):
+        st.markdown("각 설명 방법의 **공식이 적용된 부분**은 <u>밑줄</u>로 표시했어요.", unsafe_allow_html=True)
+        for method, ex in examples.items():
+            st.markdown(
+                f"<div style='margin-bottom:10px; padding:10px 14px; background:#f9fafb; "
+                f"border-radius:6px; border-left:3px solid #3b82f6;'>"
+                f"<span style='font-weight:700; color:#1d4ed8;'>[{method}]</span> {ex}</div>",
+                unsafe_allow_html=True)
+
+    with st.expander("📖 모범 답안 보기"):
+        st.markdown(model_answer)
+
+
 def render_set(set_key, passage_html, q1_table_html, q1_labels,
-               q1_answer_keys, q1_correct,
-               q2_first_sentence,
-               q3_plan_html):
+               q1_answer_keys, q1_correct, q1_keywords, q1_hints,
+               q2_first_sentence, q2_examples, q2_model,
+               q3_plan_html, q3_checks, q3_model):
     """
     세트 공통 렌더링 함수.
-    - set_key: 'set1' | 'set2' | 'set3'
-    - passage_html: 지문 HTML
-    - q1_*: 1번 문항 관련
-    - q2_*: 2번 문항 관련
-    - q3_*: 3번 문항 관련
+    - q1_hints: 각 빈칸 틀렸을 때 보완 안내 문자열 리스트
+    - q2_examples: 설명방법별 예시 문장 딕셔너리
+    - q3_checks: 구체성 체크 안내
     """
     current = st.session_state.step[set_key]
     completed = st.session_state.completed[set_key]
@@ -145,9 +212,36 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
             st.rerun()
 
         if completed[1]:
-            st.success("✅ 답안이 저장되었습니다!")
-            st.markdown("**📋 정답 기준**")
-            st.info(q1_correct)
+            ans = st.session_state.answers[set_key]
+            vals = [ans.get(k, '') for k in q1_answer_keys]
+            results = [any(kw in val for kw in kws) for val, kws in zip(vals, q1_keywords)]
+            all_correct = all(results)
+            labels = ['㉠', '㉡', '㉢']
+
+            if all_correct:
+                st.success("🎉 모두 정답이에요!")
+            else:
+                st.warning("✏️ 아쉬운 부분이 있어요. 아래 안내를 참고해 보완해 보세요!")
+
+            for i, (label, val, matched) in enumerate(zip(labels, vals, results)):
+                if matched:
+                    st.markdown(
+                        f"<div style='background:#f0fdf4; border-left:4px solid #22c55e; "
+                        f"padding:10px 14px; border-radius:6px; margin:6px 0;'>"
+                        f"✅ <b>{label}</b>: {val}</div>",
+                        unsafe_allow_html=True)
+                else:
+                    st.markdown(
+                        f"<div style='background:#fef2f2; border-left:4px solid #ef4444; "
+                        f"padding:10px 14px; border-radius:6px; margin:6px 0;'>"
+                        f"❌ <b>{label}</b>: {val if val else '(미입력)'}<br>"
+                        f"<span style='font-size:13px; color:#374151; margin-top:4px; display:block;'>"
+                        f"📝 보완 방법: {q1_hints[i]}</span></div>",
+                        unsafe_allow_html=True)
+
+            if not all_correct:
+                with st.expander("📖 모범 답안 보기"):
+                    st.markdown(q1_correct)
 
     # ── 2번: 설명문 쓰기 ─────────────────────────────
     elif current == 2:
@@ -171,13 +265,10 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
             st.rerun()
 
         if completed[2]:
-            st.success("✅ 답안이 저장되었습니다!")
-            st.markdown("**📋 체크리스트** — 스스로 확인해 보세요")
-            st.markdown(
-                "- (1)과 (2) 문장 끝에 **(설명방법)** 명칭이 각각 적혀 있나요?\n"
-                "- 두 문장에 **서로 다른** 설명 방법이 쓰였나요?\n"
-                "- 지문에 **없는 외부 지식**을 쓰지는 않았나요?\n"
-                "- (1)과 (2)가 **논리적으로 자연스럽게** 이어지나요?"
+            _draw_q2_feedback(
+                q2_examples, q2_model,
+                st.session_state.answers[set_key].get('q2_1',''),
+                st.session_state.answers[set_key].get('q2_2','')
             )
 
     # ── 3번: 영상 기획 ───────────────────────────────
@@ -187,28 +278,39 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
         draw_blue_info_box(q3_plan_html)
 
         with st.form(f"form_{set_key}_q3"):
-            vis = st.text_area("(1) Ⓐ 시각 요소 및 효과:", height=110,
-                                placeholder="시각 요소를 쓰고, 지문의 내용을 근거로 효과를 함께 서술하세요.",
-                                value=st.session_state.answers[set_key].get('q3_vis', ''))
-            aud = st.text_area("(2) Ⓑ 청각 요소 및 효과:", height=110,
-                                placeholder="청각 요소를 쓰고, 지문의 내용을 근거로 효과를 함께 서술하세요.",
-                                value=st.session_state.answers[set_key].get('q3_aud', ''))
+            st.markdown("**(1) Ⓐ 시각 요소**")
+            vis_el = st.text_area("시각 요소:", height=68,
+                placeholder="'~한 사진', '~한 이미지', '~한 그래픽' 등 구체적인 매체 형태로 작성하세요.",
+                value=st.session_state.answers[set_key].get('q3_vis_el', ''),
+                label_visibility="collapsed")
+            st.markdown("<span style='font-size:13px; color:#6b7280;'>효과</span>", unsafe_allow_html=True)
+            vis_eff = st.text_area("시각 효과:", height=80,
+                placeholder="위 시각 요소가 지문의 어떤 내용을 전달하는 데 효과적인지 지문 근거와 함께 서술하세요.",
+                value=st.session_state.answers[set_key].get('q3_vis_eff', ''),
+                label_visibility="collapsed")
+            st.markdown("---")
+            st.markdown("**(2) Ⓑ 청각 요소**")
+            aud_el = st.text_area("청각 요소:", height=68,
+                placeholder="'~한 배경음악', '~하는 효과음' 등 구체적인 소리 형태로 작성하세요.",
+                value=st.session_state.answers[set_key].get('q3_aud_el', ''),
+                label_visibility="collapsed")
+            st.markdown("<span style='font-size:13px; color:#6b7280;'>효과</span>", unsafe_allow_html=True)
+            aud_eff = st.text_area("청각 효과:", height=80,
+                placeholder="위 청각 요소가 지문의 어떤 내용을 전달하는 데 효과적인지 지문 근거와 함께 서술하세요.",
+                value=st.session_state.answers[set_key].get('q3_aud_eff', ''),
+                label_visibility="collapsed")
             submitted = st.form_submit_button("제출하고 피드백 받기")
 
         if submitted:
-            st.session_state.answers[set_key]['q3_vis'] = vis
-            st.session_state.answers[set_key]['q3_aud'] = aud
+            st.session_state.answers[set_key]['q3_vis_el']  = vis_el
+            st.session_state.answers[set_key]['q3_vis_eff'] = vis_eff
+            st.session_state.answers[set_key]['q3_aud_el']  = aud_el
+            st.session_state.answers[set_key]['q3_aud_eff'] = aud_eff
             st.session_state.completed[set_key][3] = True
             st.rerun()
 
         if completed[3]:
-            st.success("✅ 답안이 저장되었습니다!")
-            st.markdown("**📋 체크리스트** — 스스로 확인해 보세요")
-            st.markdown(
-                "- 시각/청각 요소가 **지문의 핵심 내용**을 반영하고 있나요?\n"
-                "- 효과를 서술할 때 **윗글의 근거**가 구체적으로 포함되어 있나요?\n"
-                "- '보기 좋다', '예쁘다' 같은 **주관적 표현**만 쓰지는 않았나요?"
-            )
+            _draw_checklist_feedback(q3_checks, q3_model)
 
     # (문항 이동은 상단 버튼으로)
 
@@ -274,7 +376,24 @@ with tab1:
         q1_labels=["(1) ㉠:", "(2) ㉡:", "(3) ㉢:"],
         q1_answer_keys=['q1_a', 'q1_b', 'q1_c'],
         q1_correct="㉠ 비교적 쉬운 과제/취미, ㉡ 차분하게 혼자 집중하는 시간을 가짐, ㉢ 사회적 억제",
+        q1_keywords=[['쉽', '취미', '비교적', '간단', '노력'], ['혼자', '집중', '차분'], ['억제', '사회적 억제']],
         q2_first_sentence="과제의 특성과 난이도에 따라 우리의 학습 효율을 높이는 방법은 다르게 적용되어야 한다.",
+        q2_examples={
+            "정의": "이 지문에서는 '사회적 촉진'이나 '사회적 억제'의 정의가 직접 제시되지 않으므로 <u>정의</u> 방법을 적용하기 어렵습니다.",
+            "예시": "<u>예를 들어</u>, 비교적 쉬운 과제라면 커피숍이나 도서관처럼 사람이 많은 공간에서 하거나 공부 모임을 만들어 함께하는 것이 학습 효율을 높일 수 있다. (예시)",
+            "인과": "지나치게 어렵거나 도전이 필요한 과제는 <u>타인의 존재가 수행을 방해하기 때문에</u> 차분하게 혼자 집중하는 시간을 갖는 것이 효율적이다. (인과)",
+            "비교와 대조": "비교적 쉬운 과제는 여럿이 함께하는 환경이 효율적인 <u>반면</u>, 지나치게 어렵거나 도전이 필요한 과제는 혼자 차분하게 집중하는 환경이 효율적이다. (비교와 대조)",
+            "분석": "이 지문에서는 과제나 학습 전략을 구성 요소로 나누어 설명하는 내용이 없으므로 <u>분석</u> 방법을 적용하기 어렵습니다.",
+            "분류와 구분": "과제는 <u>난이도를 기준으로</u> 비교적 쉬운 과제와 지나치게 어려운 과제로 <u>나뉘며</u>, 각각에 알맞은 학습 환경이 다르게 적용된다. (분류와 구분)"
+        },
+        q2_model=(
+            "**예시 답안**\n\n"
+            "(1) 비교적 쉬운 과제나 취미 활동을 할 때는 커피숍이나 도서관처럼 다른 사람이 있는 공간에서 하거나, "
+            "공부 모임을 만들어 함께하는 것이 더 효율적이다. (예시)\n\n"
+            "(2) 반면 지나치게 어렵거나 도전이 필요한 과제를 할 때는 익숙해질 때까지 차분하게 혼자 집중하는 "
+            "시간을 갖는 것이 효율적인데, 이는 타인의 존재가 오히려 수행을 방해하는 사회적 억제 현상이 나타나기 "
+            "때문이다. (인과)"
+        ),
         q3_plan_html=(
             "<b>[영상 기획안]</b><br>"
             "◦ 주제: 사회적 촉진과 억제를 활용한 스마트한 공부법<br><br>"
@@ -284,6 +403,18 @@ with tab1:
             "<b>[장면 2] 어려운 과제를 할 때</b><br>"
             "◦ 시각 요소: ( Ⓐ )<br>"
             "◦ 청각 요소: ( Ⓑ )"
+        ),
+        q3_checks=[
+            "시각/청각 요소가 '어려운 과제 → 혼자 집중하는 차분한 환경'이라는 지문의 핵심 내용을 반영해야 합니다.",
+            "효과 서술에 윗글의 근거(예: '사회적 억제', '혼자 집중해야 효율이 오름')가 구체적으로 포함되어야 합니다.",
+            "'보기 좋다', '집중이 잘 된다'처럼 주관적 표현만 쓰면 오답입니다. 지문 근거와 연결해야 합니다.",
+        ],
+        q3_model=(
+            "**(예시 답안)**\n\n"
+            "Ⓐ 시각 요소: 창문이 없는 조용한 독서실에서 혼자 책상에 앉아 문제를 푸는 학생의 모습을 클로즈업으로 보여줌.\n"
+            "효과: 지나치게 어렵거나 도전이 필요한 과제는 익숙해질 때까지 차분하게 혼자 집중해야 한다는 지문의 내용을 시각적으로 전달한다.\n\n"
+            "Ⓑ 청각 요소: 시계 초침 소리만 들리는 고요한 배경음을 사용함.\n"
+            "효과: 타인의 존재가 없는 조용한 환경에서 혼자 집중해야 학습 효율이 높아진다는 지문의 내용을 청각적으로 강조한다."
         ),
     )
 
@@ -321,7 +452,22 @@ with tab2:
         q1_labels=["(1) ㉠:", "(2) ㉡:", "(3) ㉢:"],
         q1_answer_keys=['q1_a', 'q1_b', 'q1_c'],
         q1_correct="㉠ 높은 곳에 고여 있는 물, ㉡ 전하가 이동하지 않고 머물러 있음, ㉢ 위험하지 않음(별 피해가 없음)",
+        q1_keywords=[['고여', '높은', '물'], ['이동하지', '머물', '정지', '흐르지'], ['위험하지', '피해', '안전']],
         q2_first_sentence="겨울철에 흔히 겪는 정전기는 우리가 평소 집에서 사용하는 전기와는 다른 뚜렷한 특징이 있다.",
+        q2_examples={
+            "정의": "정전기<u>란</u> 전하가 정지 상태로 있어 흐르지 않고 머물러 있는 전기<u>를 말한다</u>. (정의)",
+            "예시": "이 지문에서는 정전기의 구체적 사례를 나열하는 내용이 없으므로 <u>예시</u> 방법을 적용하기 어렵습니다.",
+            "인과": "정전기는 전하가 이동하지 않고 머물러 있기 <u>때문에</u> 전압이 아무리 높아도 위험하지 않다. (인과)",
+            "비교와 대조": "실생활 전기가 흐르는 물처럼 전하가 이동하는 <u>반면</u>, 정전기는 높은 곳에 고여 있는 물처럼 전하가 이동하지 않고 머물러 있어 위험하지 않다. (비교와 대조)",
+            "분석": "이 지문에서는 정전기의 구성 요소를 나누어 설명하는 내용이 없으므로 <u>분석</u> 방법을 적용하기 어렵습니다.",
+            "분류와 구분": "전기는 <u>전하의 이동 여부를 기준으로</u> 전하가 이동하는 실생활 전기와 전하가 머물러 있는 정전기로 <u>나뉜다</u>. (분류와 구분)"
+        },
+        q2_model=(
+            "**예시 답안**\n\n"
+            "(1) 정전기란 전하가 정지 상태로 있어 흐르지 않고 머물러 있는 전기를 말한다. (정의)\n\n"
+            "(2) 실생활 전기가 흐르는 물처럼 전하가 이동하는 반면, 정전기는 높은 곳에 고여 있는 물처럼 "
+            "전하가 이동하지 않고 머물러 있어 전압이 높아도 위험하지 않다. (비교와 대조)"
+        ),
         q3_plan_html=(
             "<b>[영상 기획안]</b><br>"
             "◦ 주제: 전압은 높지만 위험하지 않은 정전기의 비밀<br><br>"
@@ -331,6 +477,18 @@ with tab2:
             "<b>[장면 2] 정전기 (고여 있는 물)</b><br>"
             "◦ 시각 요소: ( Ⓐ )<br>"
             "◦ 청각 요소: ( Ⓑ )"
+        ),
+        q3_checks=[
+            "시각/청각 요소가 '전하가 이동하지 않고 고여 있는 정전기의 성질'을 반영해야 합니다.",
+            "효과 서술에 윗글의 근거(예: '떨어지지 않아 피해가 없음', '전하가 머물러 있음')가 포함되어야 합니다.",
+            "'조용하다', '안정적이다'처럼 근거 없는 주관적 표현만 쓰면 오답입니다. 지문 내용과 연결해야 합니다.",
+        ],
+        q3_model=(
+            "**(예시 답안)**\n\n"
+            "Ⓐ 시각 요소: 높은 절벽 위에 잔잔하게 고여 있는 물이 전혀 움직이지 않는 모습을 정지된 화면으로 보여줌.\n"
+            "효과: 정전기는 전하가 이동하지 않고 머물러 있어 아무리 높은 곳에 고여 있어도 떨어지지 않으면 피해가 없다는 지문의 내용을 시각적으로 전달한다.\n\n"
+            "Ⓑ 청각 요소: 아무런 소리도 없는 완전한 무음 또는 매우 잔잔한 배경음을 사용함.\n"
+            "효과: 전하가 이동하지 않고 정지해 있는 정전기의 특성을 청각적으로 표현하여, 전압은 높지만 위험하지 않다는 지문의 핵심 내용을 강조한다."
         ),
     )
 
@@ -371,7 +529,23 @@ with tab3:
         q1_labels=["(1) ㉠:", "(2) ㉡:", "(3) ㉢:"],
         q1_answer_keys=['q1_a', 'q1_b', 'q1_c'],
         q1_correct="㉠ 로봇이 실수 없이 완벽하게 피겨 스케이팅을 해내는 것, ㉡ 감정이나 철학/이야기가 없어 예술로 보기 어려움, ㉢ 미술계 변화 유발 및 예술 범주 확장이라는 상징적 가치",
+        q1_keywords=[['로봇', '피겨', '실수', '완벽', '스케이팅'], ['감정', '철학', '이야기', '예술로 보기 어렵', '어렵'], ['변화', '범주', '확장', '상징', '가치']],
         q2_first_sentence="인공 지능이 그린 그림이 늘어나는 요즘, 우리는 이 작품들을 어떤 눈으로 바라봐야 할지 올바르게 생각해야 한다.",
+        q2_examples={
+            "정의": "이 지문에서는 '예술'이나 '인공 지능'의 개념을 직접 정의하는 내용이 없으므로 <u>정의</u> 방법을 적용하기 어렵습니다.",
+            "예시": "인간 예술의 가치를 보여주는 사례로, <u>예를 들어</u> 올림픽 선수가 기울인 노력과 열정이 담긴 경기는 보는 이의 마음을 울린다. (예시)",
+            "인과": "인공 지능은 감정도 느끼지 못하고 독자적인 철학이나 이야기가 없기 <u>때문에</u> 그 결과물을 예술로 보기 어렵다. (인과)",
+            "비교와 대조": "인간의 작품에는 작가의 감정, 경험, 관점이 담겨 있어 감동을 주는 <u>반면</u>, 인공 지능의 그림에는 감정이나 독자적인 철학이 없어 예술로 보기 어렵다. (비교와 대조)",
+            "분석": "이 지문에서는 예술 작품의 구성 요소를 나누어 설명하는 내용이 없으므로 <u>분석</u> 방법을 적용하기 어렵습니다.",
+            "분류와 구분": "그림은 <u>감정과 철학의 유무를 기준으로</u> 인간의 예술과 인공 지능의 창작물로 <u>나뉘며</u>, 둘은 예술적 가치 면에서 다르게 평가된다. (분류와 구분)"
+        },
+        q2_model=(
+            "**예시 답안**\n\n"
+            "(1) 인간의 예술에는 작가의 고유한 감정, 철학, 삶의 경험, 세상을 바라보는 관점 등이 담겨 있지만, "
+            "인공 지능의 그림에는 감정도 독자적인 철학도 없기 때문에 예술로 보기 어렵다. (비교와 대조)\n\n"
+            "(2) 그러나 인공 지능이 그린 그림은 기존 미술계에 큰 변화를 가져왔다는 점과, 앞으로 예술의 범주를 "
+            "확장할 수 있다는 점에서 상징적인 가치를 지닌다. (인과)"
+        ),
         q3_plan_html=(
             "<b>[영상 기획안]</b><br>"
             "◦ 주제: 인간의 감정이 담긴 진정한 예술의 가치<br><br>"
@@ -381,6 +555,18 @@ with tab3:
             "<b>[장면 2] 마음에 울림을 주는 진정한 예술</b><br>"
             "◦ 시각 요소: ( Ⓐ )<br>"
             "◦ 청각 요소: ( Ⓑ )"
+        ),
+        q3_checks=[
+            "시각/청각 요소가 '작가의 감정, 경험, 철학이 담긴 인간 예술의 특성'을 반영해야 합니다.",
+            "효과 서술에 윗글의 근거(예: '마음을 울리는 감동', '선수의 노력과 열정')가 포함되어야 합니다.",
+            "'아름답다', '감동적이다'처럼 근거 없는 주관적 표현만 쓰면 오답입니다. 지문 내용과 연결해야 합니다.",
+        ],
+        q3_model=(
+            "**(예시 답안)**\n\n"
+            "Ⓐ 시각 요소: 올림픽 피겨 선수가 실수를 이겨내며 눈물을 흘리는 감동적인 장면을 클로즈업으로 보여줌.\n"
+            "효과: 인간의 작품에는 작가의 고유한 감정, 삶의 경험, 세상을 바라보는 관점이 담겨 있어 감상자의 마음을 울린다는 지문의 내용을 시각적으로 전달한다.\n\n"
+            "Ⓑ 청각 요소: 선수가 연기를 마쳤을 때 관중들이 함성을 지르고 박수를 치는 소리를 배경음으로 사용함.\n"
+            "효과: 올림픽에 열광하는 이유가 선수들의 노력과 열정을 알기 때문이라는 지문의 내용을 청각적으로 강조하여, 인간 예술만이 줄 수 있는 감동을 부각한다."
         ),
     )
 
