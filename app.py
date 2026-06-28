@@ -1,5 +1,4 @@
 import streamlit as st
-import re
 
 st.set_page_config(page_title="서·논술형 답안 작성 연습", page_icon="💯", layout="wide")
 
@@ -103,51 +102,6 @@ def is_valid(val, kws):
         return False
     return any(kw.replace(" ", "") in val_clean for kw in kws)
 
-def check_q2_issues(a1, a2, passage_keywords):
-    issues = []
-    VALID_METHODS = ['정의', '예시', '인과', '비교와대조', '분류와구분', '분석']
-    METHOD_DISPLAY = {
-        '정의': '정의', '예시': '예시', '인과': '인과',
-        '비교와대조': '비교와 대조', '분류와구분': '분류와 구분', '분석': '분석'
-    }
-
-    a1_clean = a1.replace(" ", "")
-    a2_clean = a2.replace(" ", "")
-    combined_clean = a1_clean + a2_clean
-
-    def extract_method(sent_clean):
-        for m in VALID_METHODS:
-            if m in sent_clean:
-                return m
-        return None
-
-    m1 = extract_method(a1_clean)
-    m2 = extract_method(a2_clean)
-
-    if m1 is None:
-        has_any_bracket = '(' in a1 and ')' in a1
-        if has_any_bracket:
-            issues.append("(1) 괄호 안에 쓴 설명 방법 명칭이 허용된 6가지에 해당하지 않아요. 정확한 명칭으로 적어주세요.")
-        else:
-            issues.append("(1) 문장 끝에 사용한 설명 방법을 괄호로 표기하지 않았어요. 예: 문장 내용. (인과)")
-            
-    if m2 is None:
-        has_any_bracket = '(' in a2 and ')' in a2
-        if has_any_bracket:
-            issues.append("(2) 괄호 안에 쓴 설명 방법 명칭이 허용된 6가지에 해당하지 않아요. 정확한 명칭으로 적어주세요.")
-        else:
-            issues.append("(2) 문장 끝에 사용한 설명 방법을 괄호로 표기하지 않았어요. 예: 문장 내용. (비교와 대조)")
-
-    if m1 and m2 and m1 == m2:
-        issues.append(f"(1)·(2) 모두 '{METHOD_DISPLAY[m1]}'을(를) 사용했어요. 두 문장에는 서로 다른 설명 방법이 쓰여야 합니다.")
-
-    has_passage_kw = any(kw.replace(" ", "") in combined_clean for kw in passage_keywords)
-    if not has_passage_kw:
-        issues.append("윗글에 제시된 내용을 활용하지 않은 것으로 보여요. 지문의 핵심 표현을 문장에 포함해야 해요. (외부 지식 활용 시 오답)")
-
-    return issues
-
-# ── 3번 문항 채점 UI 개선 (요소와 효과 분리) ──
 def _draw_q3_feedback(ans, q3_grade):
     vis_el  = ans.get('q3_vis_el', '')
     vis_eff = ans.get('q3_vis_eff', '')
@@ -196,7 +150,7 @@ def _draw_q3_feedback(ans, q3_grade):
     with st.expander("📖 모범 답안 보기"):
         st.markdown(q3_grade['model'])
 
-def _draw_q2_feedback(examples, model_answer, a1, a2, passage_keywords, content_checks):
+def _draw_q2_feedback(examples, model_answer, a1, a2, passage_keywords):
     VALID_METHODS = ['정의', '예시', '인과', '비교와대조', '분류와구분', '분석']
     METHOD_DISPLAY = {
         '정의': '정의', '예시': '예시', '인과': '인과',
@@ -219,34 +173,29 @@ def _draw_q2_feedback(examples, model_answer, a1, a2, passage_keywords, content_
     m1 = extract_method(a1)
     m2 = extract_method(a2)
 
-    def grade_sent(sent, sent_clean, method, other_method, sent_content_kws, passage_keywords):
+    def grade_sent(sent, sent_clean, method, other_method, passage_keywords):
         problems = []
+        # 1. 괄호 표기 확인
         if method is None:
             has_bracket = '(' in sent and ')' in sent
             if has_bracket:
-                problems.append("괄호 안의 명칭이 허용된 6가지에 해당하지 않아요.")
+                problems.append("괄호 안의 명칭이 허용된 6가지(정의, 예시, 인과, 비교와 대조, 분류와 구분, 분석)에 해당하지 않아요.")
             else:
                 problems.append("설명 방법을 괄호로 표기하지 않았어요. 예: 문장. (인과)")
-            return problems
+            return problems # 방식이 틀리면 내용 검사 안 함
 
+        # 2. 중복 확인
         if other_method and method == other_method:
             problems.append(f"문장 (1)과 (2)에 같은 설명 방법 '{METHOD_DISPLAY[method]}'이(가) 중복됐어요.")
 
+        # 3. 지문 활용 확인 (내용 제약 삭제, 지문 단어만 들어가면 통과)
         if not sent_has_passage_kw(sent, passage_keywords):
-            problems.append("지문에 없는 내용(외부 지식)이 사용된 것으로 보여요.")
-            return problems
-
-        if sent_content_kws:
-            kws, msg = sent_content_kws
-            if not any(kw.replace(" ", "") in sent_clean for kw in kws):
-                problems.append(msg)
+            problems.append("지문에 없는 내용(외부 지식)이 사용된 것으로 보여요. 윗글의 내용을 활용해 주세요.")
+            
         return problems
 
-    sent1_content = content_checks[0] if len(content_checks) > 0 else None
-    sent2_content = content_checks[1] if len(content_checks) > 1 else None
-
-    p1 = grade_sent(a1, a1_clean, m1, m2, sent1_content, passage_keywords)
-    p2 = grade_sent(a2, a2_clean, m2, m1, sent2_content, passage_keywords)
+    p1 = grade_sent(a1, a1_clean, m1, m2, passage_keywords)
+    p2 = grade_sent(a2, a2_clean, m2, m1, passage_keywords)
 
     def render_sent_result(label, sent, problems):
         if not sent.strip():
@@ -287,7 +236,7 @@ def _draw_q2_feedback(examples, model_answer, a1, a2, passage_keywords, content_
 
 def render_set(set_key, passage_html, q1_table_html, q1_labels,
                q1_answer_keys, q1_correct, q1_keywords, q1_hints,
-               q2_first_sentence, q2_examples, q2_model, q2_passage_keywords, q2_content_checks,
+               q2_first_sentence, q2_examples, q2_model, q2_passage_keywords,
                q3_plan_html, q3_grade):
     current = st.session_state.step[set_key]
     completed = st.session_state.completed[set_key]
@@ -371,8 +320,7 @@ def render_set(set_key, passage_html, q1_table_html, q1_labels,
                 q2_examples, q2_model,
                 st.session_state.answers[set_key].get('q2_1', ''),
                 st.session_state.answers[set_key].get('q2_2', ''),
-                q2_passage_keywords,
-                q2_content_checks
+                q2_passage_keywords
             )
 
     # ── 3번: 영상 기획 ───────────────────────────────
@@ -495,13 +443,7 @@ with tab1:
             "시간을 갖는 것이 효율적인데, 이는 타인의 존재가 오히려 수행을 방해하는 사회적 억제 현상이 나타나기 "
             "때문이다. (인과)**"
         ),
-        q2_passage_keywords=['커피숍', '도서관', '공부 모임', '사회적 촉진', '사회적 억제', '차분', '혼자', '어렵', '쉬운', '취미', '과제', '난이도'],
-        q2_content_checks=[
-            (['쉬운과제','쉬운취미','비교적쉬운','노력이필요없는','쉬운과목'],
-             "(1)·(2) 중 하나는 '비교적 쉬운 과제/취미'에 대한 내용을 담아야 해요. 지문은 쉬운 과제와 어려운 과제를 대비해서 설명하고 있어요."),
-            (['사회적억제','사회적촉진'],
-             "지문의 핵심 개념인 '사회적 촉진' 또는 '사회적 억제'가 문장에 포함되지 않았어요. 설명방법을 활용한 문장에도 지문의 핵심 개념이 드러나야 해요."),
-        ],
+        q2_passage_keywords=['커피숍', '도서관', '공부 모임', '사회적 촉진', '사회적 억제', '차분', '혼자', '어렵', '쉬운', '취미', '과제', '난이도', '효율', '방해', '연습', '도전'],
         q3_plan_html=(
             "<b>[영상 기획안]</b><br>"
             "◦ 주제: 사회적 촉진과 억제를 활용한 스마트한 공부법<br><br>"
@@ -514,11 +456,11 @@ with tab1:
         ),
         q3_grade={
             'vis': {
-                'eff_kws': ['차분', '혼자', '사회적억제', '타인의존재', '방해', '조용', '학습효율', '집중', '익숙해질때까지'],
+                'eff_kws': ['차분', '혼자', '사회적억제', '타인의존재', '방해', '조용', '학습효율', '집중', '익숙해질때까지', '효율'],
                 'eff_msg': "지문의 내용을 근거로 효과를 서술해 주세요. (예: '차분하게 혼자 집중해야 한다', '사회적 억제가 일어난다' 등)",
             },
             'aud': {
-                'eff_kws': ['차분', '혼자', '사회적억제', '타인의존재', '방해', '조용', '학습효율', '집중', '익숙해질때까지'],
+                'eff_kws': ['차분', '혼자', '사회적억제', '타인의존재', '방해', '조용', '학습효율', '집중', '익숙해질때까지', '효율'],
                 'eff_msg': "지문의 내용을 근거로 효과를 서술해 주세요. (예: '타인의 존재가 없는 조용한 환경이어야 한다', '혼자 집중해야 효율이 높아진다' 등)",
             },
             'model': (
@@ -585,13 +527,7 @@ with tab2:
             "**(2) 실생활 전기가 흐르는 물처럼 전하가 이동하는 반면, 정전기는 높은 곳에 고여 있는 물처럼 "
             "전하가 이동하지 않고 머물러 있어 전압이 높아도 위험하지 않다. (비교와 대조)**"
         ),
-        q2_passage_keywords=['정전기', '전하', '흐르는 물', '고여', '이동', '머물', '위험', '전압', '실생활', '정(靜)'],
-        q2_content_checks=[
-            (['전하가이동','이동하지않','머물러있','정지','흐르지않'],
-             "정전기의 핵심 특성인 '전하가 이동하지 않고 머물러 있음'이 문장에 드러나지 않았어요. 이것이 정전기를 설명하는 핵심 내용이에요."),
-            (['위험하지않','피해가없','안전'],
-             "정전기가 '위험하지 않다'는 내용이 빠져 있어요. 지문의 결론에 해당하는 중요한 정보예요."),
-        ],
+        q2_passage_keywords=['정전기', '전하', '흐르는 물', '고여', '이동', '머물', '위험', '전압', '실생활', '정(靜)', '조용', '피해', '현상'],
         q3_plan_html=(
             "<b>[영상 기획안]</b><br>"
             "◦ 주제: 전압은 높지만 위험하지 않은 정전기의 비밀<br><br>"
@@ -604,8 +540,7 @@ with tab2:
         ),
         q3_grade={
             'vis': {
-                # 선생님의 피드백 반영: '고인물', '고여', '흐르지', '높은곳' 등 추가
-                'eff_kws': ['이동하지않', '머물러', '피해가없', '떨어지지않', '위험하지', '고여있', '고인물', '정지', '전압', '흐르지', '높은곳'],
+                'eff_kws': ['이동하지않', '머물러', '피해가없', '떨어지지않', '위험하지', '고여있', '고인물', '정지', '전압', '흐르지', '조용하', '높은곳'],
                 'eff_msg': "'전하가 이동하지 않고 정지해 있다', '위험하지 않다', '높은 곳에 고인 물과 같다' 등 지문의 표현을 포함하여 서술해 주세요.",
             },
             'aud': {
@@ -680,13 +615,7 @@ with tab3:
             "**(2) 그러나 인공 지능이 그린 그림은 기존 미술계에 큰 변화를 가져왔다는 점과, 앞으로 예술의 범주를 "
             "확장할 수 있다는 점에서 상징적인 가치를 지닌다. (인과)**"
         ),
-        q2_passage_keywords=['인공 지능', '감정', '철학', '경험', '관점', '예술', '올림픽', '열정', '노력', '마음', '변화', '범주', '확장', '상징', '가치'],
-        q2_content_checks=[
-            (['감정이없','철학이없','이야기가없','예술로보기어렵','감정도느끼지못','독자적인철학'],
-             "인공 지능이 예술로 보기 어려운 이유(감정·철학·이야기가 없음)가 문장에 드러나지 않았어요. 지문의 핵심 근거예요."),
-            (['미술계변화','범주확장','범주를확장','상징적가치','상징적의미'],
-             "인공 지능 예술의 가치(미술계 변화, 예술 범주 확장, 상징적 가치) 중 하나 이상이 문장에 포함되어야 해요."),
-        ],
+        q2_passage_keywords=['인공 지능', '감정', '철학', '경험', '관점', '예술', '올림픽', '열정', '노력', '마음', '변화', '범주', '확장', '상징', '가치', '로봇', '그림', '작품'],
         q3_plan_html=(
             "<b>[영상 기획안]</b><br>"
             "◦ 주제: 인간의 감정이 담긴 진정한 예술의 가치<br><br>"
@@ -699,12 +628,12 @@ with tab3:
         ),
         q3_grade={
             'vis': {
-                'eff_kws': ['마음을울리', '감정', '경험', '관점', '노력', '열정', '감동', '작가의고유한', '철학', '이야기'],
-                'eff_msg': "지문의 내용을 근거로 효과를 서술해 주세요. (예: '작가의 고유한 감정과 철학이 담겨 마음을 울린다' 등)",
+                'eff_kws': ['마음', '울리', '감정', '경험', '관점', '노력', '열정', '감동', '철학', '이야기'],
+                'eff_msg': "시각 효과에 지문의 근거(작가의 감정, 경험, 노력, 열정 등)가 포함되도록 다시 한번 확인해 보세요.",
             },
             'aud': {
-                'eff_kws': ['마음을울리', '감정', '경험', '관점', '노력', '열정', '감동', '작가의고유한', '철학', '이야기'],
-                'eff_msg': "지문의 내용을 근거로 효과를 서술해 주세요. (예: '선수들의 노력과 열정을 알아서 올림픽에 열광한다' 등)",
+                'eff_kws': ['마음', '울리', '감정', '경험', '관점', '노력', '열정', '감동', '열광', '호응', '환호'],
+                'eff_msg': "청각 효과에 지문의 근거(선수들의 노력과 열정, 마음을 울리는 감동 등)가 포함되도록 다시 한번 확인해 보세요.",
             },
             'model': (
                 "**예시 답안**\n\n"
@@ -735,14 +664,22 @@ with tab4:
                     "해당 심리 현상의 정확한 전체 용어인 '사회적 억제'를 모두 적어주세요."
                 ],
                 'q1_correct': ['㉠ 비교적 쉬운 과제/취미', '㉡ 차분하게 혼자 집중하는 시간을 가짐', '㉢ 사회적 억제'],
-                'q2_passage_keywords': ['커피숍', '도서관', '공부 모임', '사회적 촉진', '사회적 억제', '차분', '혼자', '어렵', '쉬운', '취미', '과제', '난이도'],
+                'q2_passage_keywords': ['커피숍', '도서관', '공부 모임', '사회적 촉진', '사회적 억제', '차분', '혼자', '어렵', '쉬운', '취미', '과제', '난이도', '효율', '방해', '연습', '도전'],
+                'q2_examples': {
+                    "정의": "<span style='color:#1d6fc4; font-weight:bold;'>이 지문에서는 '사회적 촉진'이나 '사회적 억제'의 정의가 직접 제시되지 않으므로 정의 방법을 적용하기 어렵습니다.</span>",
+                    "예시": "<b style='color:#dc2626;'>예를 들어</b>, 비교적 쉬운 과제라면 커피숍이나 도서관처럼 사람이 많은 공간에서 하거나 공부 모임을 만들어 함께하는 것이 학습 효율을 높일 수 있다. (예시)",
+                    "인과": "지나치게 어렵거나 도전이 필요한 과제는 타인의 존재가 수행을 방해하기 <b style='color:#dc2626;'>때문에</b> 차분하게 혼자 집중하는 시간을 갖는 것이 효율적이다. (인과)",
+                    "비교와 대조": "비교적 쉬운 과제는 여럿이 함께하는 환경이 효율적인 <b style='color:#dc2626;'>반면</b>, 지나치게 어렵거나 도전이 필요한 과제는 혼자 차분하게 집중하는 환경이 효율적이다. (비교와 대조)",
+                    "분석": "<span style='color:#1d6fc4; font-weight:bold;'>이 지문에서는 과제나 학습 전략을 구성 요소로 나누어 설명하는 내용이 없으므로 분석 방법을 적용하기 어렵습니다.</span>",
+                    "분류와 구분": "과제는 <b style='color:#dc2626;'>난이도를 기준으로</b> 비교적 쉬운 과제와 지나치게 어려운 과제로 <b style='color:#dc2626;'>나뉘며</b>, 각각에 알맞은 학습 환경이 다르게 적용된다. (분류와 구분)"
+                },
                 'q3_grade': {
                     'vis': {
-                        'eff_kws': ['차분', '혼자', '사회적억제', '타인의존재', '방해', '조용', '학습효율', '집중', '익숙해질때까지'],
+                        'eff_kws': ['차분', '혼자', '사회적억제', '타인의존재', '방해', '조용', '학습효율', '집중', '익숙해질때까지', '효율'],
                         'eff_msg': "지문의 내용을 근거로 효과를 서술해 주세요. (예: '차분하게 혼자 집중해야 한다', '사회적 억제가 일어난다' 등)",
                     },
                     'aud': {
-                        'eff_kws': ['차분', '혼자', '사회적억제', '타인의존재', '방해', '조용', '학습효율', '집중', '익숙해질때까지'],
+                        'eff_kws': ['차분', '혼자', '사회적억제', '타인의존재', '방해', '조용', '학습효율', '집중', '익숙해질때까지', '효율'],
                         'eff_msg': "지문의 내용을 근거로 효과를 서술해 주세요. (예: '타인의 존재가 없는 조용한 환경이어야 한다', '혼자 집중해야 효율이 높아진다' 등)",
                     },
                     'model': (
@@ -763,10 +700,18 @@ with tab4:
                     "단순히 '안전'이라고 쓰기보다 지문의 표현을 빌려 '위험하지 않다' 또는 '피해가 없다'로 정확히 서술하세요."
                 ],
                 'q1_correct': ['㉠ 높은 곳에 고여 있는 물', '㉡ 전하가 이동하지 않고 머물러 있음', '㉢ 위험하지 않음(별 피해가 없음)'],
-                'q2_passage_keywords': ['정전기', '전하', '흐르는 물', '고여', '이동', '머물', '위험', '전압', '실생활', '정(靜)'],
+                'q2_passage_keywords': ['정전기', '전하', '흐르는 물', '고여', '이동', '머물', '위험', '전압', '실생활', '정(靜)', '조용', '피해', '현상'],
+                'q2_examples': {
+                    "정의": "정전기<b style='color:#dc2626;'>란</b> 전하가 정지 상태로 있어 흐르지 않고 머물러 있는 전기<b style='color:#dc2626;'>를 말한다</b>. (정의)",
+                    "예시": "<span style='color:#1d6fc4; font-weight:bold;'>이 지문에서는 정전기의 구체적 사례를 나열하는 내용이 없으므로 예시 방법을 적용하기 어렵습니다.</span>",
+                    "인과": "정전기는 전하가 이동하지 않고 머물러 있기 <b style='color:#dc2626;'>때문에</b> 전압이 아무리 높아도 위험하지 않다. (인과)",
+                    "비교와 대조": "실생활 전기가 흐르는 물처럼 전하가 이동하는 <b style='color:#dc2626;'>반면</b>, 정전기는 높은 곳에 고여 있는 물처럼 전하가 이동하지 않고 머물러 있어 위험하지 않다. (비교와 대조)",
+                    "분석": "<span style='color:#1d6fc4; font-weight:bold;'>이 지문에서는 정전기의 구성 요소를 나누어 설명하는 내용이 없으므로 분석 방법을 적용하기 어렵습니다.</span>",
+                    "분류와 구분": "전기는 전하의 이동 여부를 <b style='color:#dc2626;'>기준으로</b> 전하가 이동하는 실생활 전기와 전하가 머물러 있는 정전기로 <b style='color:#dc2626;'>나뉜다</b>. (분류와 구분)"
+                },
                 'q3_grade': {
                     'vis': {
-                        'eff_kws': ['이동하지않', '머물러', '피해가없', '떨어지지않', '위험하지', '고여있', '고인물', '정지', '전압', '흐르지', '높은곳'],
+                        'eff_kws': ['이동하지않', '머물러', '피해가없', '떨어지지않', '위험하지', '고여있', '고인물', '정지', '전압', '흐르지', '조용하', '높은곳'],
                         'eff_msg': "'전하가 이동하지 않고 정지해 있다', '위험하지 않다', '높은 곳에 고인 물과 같다' 등 지문의 표현을 포함하여 서술해 주세요.",
                     },
                     'aud': {
@@ -791,15 +736,23 @@ with tab4:
                     "'미술계 변화', '예술 범주 확장', '상징적 가치' 중 하나 이상의 구절이 반드시 포함되게 쓰세요."
                 ],
                 'q1_correct': ['㉠ 로봇이 실수 없이 완벽하게 피겨 스케이팅을 해내는 것', '㉡ 감정이나 철학/이야기가 없어 예술로 보기 어려움', '㉢ 미술계 변화 유발 및 예술 범주 확장이라는 상징적 가치'],
-                'q2_passage_keywords': ['인공 지능', '감정', '철학', '경험', '관점', '예술', '올림픽', '열정', '노력', '마음', '변화', '범주', '확장', '상징', '가치'],
+                'q2_passage_keywords': ['인공 지능', '감정', '철학', '경험', '관점', '예술', '올림픽', '열정', '노력', '마음', '변화', '범주', '확장', '상징', '가치', '로봇', '그림', '작품'],
+                'q2_examples': {
+                    "정의": "<span style='color:#1d6fc4; font-weight:bold;'>이 지문에서는 '예술'이나 '인공 지능'의 개념을 직접 정의하는 내용이 없으므로 정의 방법을 적용하기 어렵습니다.</span>",
+                    "예시": "인간 예술의 가치를 보여주는 사례로, <b style='color:#dc2626;'>예를 들어</b> 올림픽 선수가 기울인 노력과 열정이 담긴 경기는 보는 이의 마음을 울린다. (예시)",
+                    "인과": "인공 지능은 감정도 느끼지 못하고 독자적인 철학이나 이야기가 없기 <b style='color:#dc2626;'>때문에</b> 그 결과물을 예술로 보기 어렵다. (인과)",
+                    "비교와 대조": "인간의 작품에는 작가의 감정, 경험, 관점이 담겨 있어 감동을 주는 <b style='color:#dc2626;'>반면</b>, 인공 지능의 그림에는 감정이나 독자적인 철학이 없어 예술로 보기 어렵다. (비교와 대조)",
+                    "분석": "<span style='color:#1d6fc4; font-weight:bold;'>이 지문에서는 예술 작품의 구성 요소를 나누어 설명하는 내용이 없으므로 분석 방법을 적용하기 어렵습니다.</span>",
+                    "분류와 구분": "그림은 감정과 철학의 유무를 <b style='color:#dc2626;'>기준으로</b> 인간의 예술과 인공 지능의 창작물로 <b style='color:#dc2626;'>나뉘며</b>, 둘은 예술적 가치 면에서 다르게 평가된다. (분류와 구분)"
+                },
                 'q3_grade': {
                     'vis': {
-                        'eff_kws': ['마음을울리', '감정', '경험', '관점', '노력', '열정', '감동', '작가의고유한', '철학', '이야기'],
-                        'eff_msg': "지문의 내용을 근거로 효과를 서술해 주세요. (예: '작가의 고유한 감정과 철학이 담겨 마음을 울린다' 등)",
+                        'eff_kws': ['마음', '울리', '감정', '경험', '관점', '노력', '열정', '감동', '철학', '이야기'],
+                        'eff_msg': "시각 효과에 지문의 근거(작가의 감정, 경험, 노력, 열정 등)가 포함되도록 다시 한번 확인해 보세요.",
                     },
                     'aud': {
-                        'eff_kws': ['마음을울리', '감정', '경험', '관점', '노력', '열정', '감동', '작가의고유한', '철학', '이야기'],
-                        'eff_msg': "지문의 내용을 근거로 효과를 서술해 주세요. (예: '선수들의 노력과 열정을 알아서 올림픽에 열광한다' 등)",
+                        'eff_kws': ['마음', '울리', '감정', '경험', '관점', '노력', '열정', '감동', '열광', '호응', '환호'],
+                        'eff_msg': "청각 효과에 지문의 근거(선수들의 노력과 열정, 마음을 울리는 감동 등)가 포함되도록 다시 한번 확인해 보세요.",
                     },
                     'model': (
                         "**예시 답안**\n\n"
@@ -845,16 +798,10 @@ with tab4:
                 issues_2 = check_q2_issues(a1, a2, rd['q2_passage_keywords'])
 
                 with st.expander(f"2번 설명문 쓰기 {'✅' if not issues_2 else '❌ 보완 필요'}", expanded=bool(issues_2)):
-                    st.markdown(f"(1) {a1}")
-                    st.markdown(f"(2) {a2}")
-                    if issues_2:
-                        st.markdown("**보완 필요:**")
-                        for iss in issues_2:
-                            st.markdown(f"⚠️ {iss}")
+                    _draw_q2_feedback(rd['q2_examples'], None, a1, a2, rd['q2_passage_keywords'])
 
             # ── 3번 복습 ──
             if comp[3]:
-                # 탭 4에서도 분리된 UI( _draw_q3_feedback )를 동일하게 사용하여 일관성 유지
                 with st.expander("3번 영상 기획 피드백 확인", expanded=True):
                     _draw_q3_feedback(ans, rd['q3_grade'])
 
